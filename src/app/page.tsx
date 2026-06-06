@@ -1,3 +1,7 @@
+// Halaman publik — selalu di-render dinamis (SSR per request)
+// agar tidak mencoba koneksi DB saat build time di Netlify/Vercel.
+export const dynamic = 'force-dynamic'
+
 import Link from 'next/link'
 import { Suspense } from 'react'
 import { BookOpenIcon, ShieldCheckIcon, WifiOffIcon } from 'lucide-react'
