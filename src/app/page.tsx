@@ -64,9 +64,16 @@ async function getStats() {
   }
 }
 
+const DEFAULT_STATS = {
+  totalSantri:      0,
+  setoranMingguIni: { alQuran: 0, praTahsin: 0, total: 0 },
+  kehadiran:        { persentase: 0, hadir: 0, total: 0 },
+}
+
 // ── Sub-komponen: Statistik dengan Suspense ───────────────────────────────────
 async function StatsSection() {
-  const stats = await getStats()
+  // Gunakan default jika DB tidak dapat dijangkau (mis. env var belum diset)
+  const stats = await getStats().catch(() => DEFAULT_STATS)
   return <StatsCards stats={stats} />
 }
 

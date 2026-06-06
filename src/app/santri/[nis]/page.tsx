@@ -26,7 +26,7 @@ export async function generateMetadata({
   const santri = await prisma.santri.findUnique({
     where:  { nis },
     select: { nama: true },
-  })
+  }).catch(() => null)
   if (!santri) return { title: 'Santri tidak ditemukan — SMSTPQ' }
   return {
     title: `${santri.nama} (${nis}) — SMSTPQ`,
@@ -115,7 +115,7 @@ export default async function SantriDetailPage({
   params: Promise<{ nis: string }>
 }) {
   const { nis } = await params
-  const data = await getSantriData(nis)
+  const data = await getSantriData(nis).catch(() => null)
 
   if (!data) notFound()
 
