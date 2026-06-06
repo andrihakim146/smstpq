@@ -70,22 +70,14 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   const ip = getIp(request)
 
   // ── 2. Rate limit endpoint LOGIN ─────────────────────────────────────────
+  // Jangan baca request body di middleware — di Netlify Edge runtime body
+  // bisa ikut terkonsumsi dan API route menerima body kosong ("Body tidak valid").
   if (pathname === '/api/auth/login' && request.method === 'POST') {
-    let key = ip
     try {
-      const body = await request.clone().json().catch(() => null)
-      // Login menggunakan PIN saja (tidak ada username), pakai IP sebagai key
-      // Jika ada email/username di body, lebih baik gunakan itu
-      if (body && typeof body.email === 'string' && body.email.trim()) {
-        key = body.email.trim().toLowerCase()
-      }
-    } catch { /* pakai IP */ }
-
-    try {
-      await loginLimiter.consume(key)
+      await loginLimiter.consume(ip)
     } catch (err) {
       if (err instanceof RateLimiterRes) {
-        logRateLimit({ path: pathname, ip, key })
+        logRateLimit({ path: pathname, ip, key: ip })
         return tooManyRequests(
           err.msBeforeNext,
           'Terlalu banyak percobaan login. Coba lagi dalam 1 jam.',
