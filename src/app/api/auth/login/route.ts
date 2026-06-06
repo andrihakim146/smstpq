@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '@/lib/prisma'
 import { createSession, COOKIE_NAME, SESSION_TTL_SECONDS } from '@/lib/session'
 import { getIp } from '@/lib/get-ip'
+import { logLoginSuccess, logLoginFailed, logLoginBlocked } from '@/lib/logger'
 
 // ── Brute-force tracking di memori (tambahan di atas rate limiter global) ──
 // key: pengajarId  →  { count: number; resetAt: number }
@@ -97,11 +98,8 @@ export async function POST(request: NextRequest) {
 
   // Jika tidak ada akun yang cocok
   if (!matchedPengajar) {
-    await logAktivitas({
-      aksi:   'LOGIN_GAGAL',
-      detail: `PIN salah dari IP ${ip}`,
-      ip,
-    })
+    logLoginFailed({ reason: 'PIN tidak cocok', ip })
+    await logAktivitas({ aksi: 'LOGIN_GAGAL', detail: `PIN salah dari IP ${ip}`, ip })
     return NextResponse.json(
       { error: 'PIN tidak ditemukan. Periksa kembali PIN Anda.' },
       { status: 401 },
@@ -112,6 +110,7 @@ export async function POST(request: NextRequest) {
   const lockRemaining = getRemainingLockMs(matchedPengajar.id)
   if (lockRemaining > 0) {
     const menitSisa = Math.ceil(lockRemaining / 60_000)
+    logLoginBlocked({ reason: 'lockout aktif', ip, nama: matchedPengajar.nama })
     return NextResponse.json(
       {
         error:      `Akun terkunci karena terlalu banyak percobaan gagal. Coba lagi dalam ${menitSisa} menit.`,
@@ -131,6 +130,7 @@ export async function POST(request: NextRequest) {
     peran: matchedPengajar.peran as 'ADMIN' | 'PENGAJAR',
   })
 
+  logLoginSuccess({ pengajarId: matchedPengajar.id, nama: matchedPengajar.nama, peran: matchedPengajar.peran, ip })
   await logAktivitas({
     aksi:       'LOGIN_BERHASIL',
     detail:     `Login berhasil dari IP ${ip}`,
@@ -164,6 +164,7 @@ export async function handleLoginFailure(pengajarId: string, ip: string) {
   const count = recordFailure(pengajarId)
 
   if (count >= MAX_ATTEMPTS) {
+    logLoginBlocked({ reason: `terkunci setelah ${count} percobaan`, ip })
     await logAktivitas({
       aksi:       'AKUN_TERKUNCI',
       detail:     `Akun terkunci setelah ${count} percobaan gagal dari IP ${ip}`,
@@ -171,6 +172,7 @@ export async function handleLoginFailure(pengajarId: string, ip: string) {
       pengajarId,
     })
   } else {
+    logLoginFailed({ reason: `percobaan ke-${count}`, ip })
     await logAktivitas({
       aksi:       'LOGIN_GAGAL',
       detail:     `Percobaan gagal ke-${count} dari IP ${ip}`,

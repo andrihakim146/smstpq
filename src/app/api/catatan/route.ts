@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { getSessionFromHeaders } from '@/lib/auth-server'
 import { sendToSantri, catatanPayload } from '@/lib/web-push'
+import { logCatatanCreated } from '@/lib/logger'
+import { getIp } from '@/lib/get-ip'
 
 const catatanSchema = z.object({
   santriId: z.string().uuid('santriId harus UUID.'),
@@ -11,6 +13,7 @@ const catatanSchema = z.object({
 
 // ── POST /api/catatan ─────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
+  const ip      = getIp(request)
   const session = getSessionFromHeaders(request)
   if (!session) {
     return NextResponse.json({ error: 'Sesi tidak ditemukan.' }, { status: 401 })
@@ -51,6 +54,8 @@ export async function POST(request: NextRequest) {
       pengajar:  { select: { nama: true } },
     },
   })
+
+  logCatatanCreated({ catatanId: catatan.id, santriId: parsed.data.santriId, pengajarId: session.id, ip })
 
   // Fire-and-forget push notification
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? ''

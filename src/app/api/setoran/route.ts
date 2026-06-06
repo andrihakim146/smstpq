@@ -4,6 +4,8 @@ import { prisma } from '@/lib/prisma'
 import { getSessionFromHeaders } from '@/lib/auth-server'
 import { VALID_SURAH_NAMES, getMaxAyat } from '@/lib/surah'
 import { sendToSantri, setoranPayload } from '@/lib/web-push'
+import { logSetoranCreated, logApiError } from '@/lib/logger'
+import { getIp } from '@/lib/get-ip'
 
 // ── Schema validasi ────────────────────────────────────────────────────────────
 const baseSchema = z.object({
@@ -60,6 +62,7 @@ async function validateBusiness(data: z.infer<typeof setoranSchema>) {
 
 // ── POST /api/setoran ─────────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
+  const ip      = getIp(request)
   const session = getSessionFromHeaders(request)
   if (!session) {
     return NextResponse.json({ error: 'Sesi tidak ditemukan.' }, { status: 401 })
@@ -108,6 +111,15 @@ export async function POST(request: NextRequest) {
       kitab:    { select: { nama: true } },
       santri:   { select: { nama: true, nis: true, noWaWali: true } },
     },
+  })
+
+  logSetoranCreated({
+    setoranId:  setoran.id,
+    santriId:   d.santriId,
+    santriNama: setoran.santri.nama,
+    tipe:       setoran.tipe,
+    pengajarId: session.id,
+    ip,
   })
 
   // Kirim push notification secara fire-and-forget (jangan blokir response)

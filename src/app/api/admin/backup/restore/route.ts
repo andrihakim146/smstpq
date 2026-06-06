@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin, getSessionFromHeaders } from '@/lib/auth-server'
 import { decryptBackup, validatePassword } from '@/lib/backup-crypto'
+import { logBackupRestore, logApiError } from '@/lib/logger'
+import { getIp } from '@/lib/get-ip'
 
 export const maxDuration = 60
 
@@ -41,6 +43,7 @@ async function batchInsert<T>(
 
 // ── POST /api/admin/backup/restore ────────────────────────────────────────────
 export async function POST(request: NextRequest) {
+  const ip    = getIp(request)
   const check = requireAdmin(request)
   if (check) return check
 
@@ -341,6 +344,7 @@ export async function POST(request: NextRequest) {
   // Catat aktivitas
   const session = getSessionFromHeaders(request)
   if (session) {
+    logBackupRestore({ pengajarId: session.id, ip, mode, tables: stats })
     const detail = `Restore (${mode}) dari backup ${payload.createdAt}: ` +
       Object.entries(stats).map(([k, v]) => `${k}=${v}`).join(', ')
     await prisma.logAktivitas.create({
@@ -348,7 +352,7 @@ export async function POST(request: NextRequest) {
         pengajarId: session.id,
         aksi:       'BACKUP_RESTORE',
         detail,
-        ip:         request.headers.get('x-forwarded-for') ?? '127.0.0.1',
+        ip,
       },
     })
   }

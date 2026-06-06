@@ -2,11 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin, getSessionFromHeaders } from '@/lib/auth-server'
 import { encryptBackup, validatePassword } from '@/lib/backup-crypto'
+import { logBackupDownload, logApiError } from '@/lib/logger'
+import { getIp } from '@/lib/get-ip'
 
 export const maxDuration = 60 // Netlify/Vercel max function duration (seconds)
 
 // ── POST /api/admin/backup/download ──────────────────────────────────────────
 export async function POST(request: NextRequest) {
+  const ip    = getIp(request)
   const check = requireAdmin(request)
   if (check) return check
 
@@ -52,13 +55,15 @@ export async function POST(request: NextRequest) {
 
   // Catat aktivitas
   const session = getSessionFromHeaders(request)
+  const sizeEst = `~${Math.round(json.length / 1024)}KB`
   if (session) {
+    logBackupDownload({ pengajarId: session.id, ip, sizeEstimate: sizeEst })
     await prisma.logAktivitas.create({
       data: {
         pengajarId: session.id,
         aksi:       'BACKUP_DOWNLOAD',
-        detail:     `Backup diunduh: ${pengajar.length} pengajar, ${santri.length} santri, ${setoran.length} setoran, ${absensi.length} absensi`,
-        ip:         request.headers.get('x-forwarded-for') ?? '127.0.0.1',
+        detail:     `Backup diunduh: ${pengajar.length} pengajar, ${santri.length} santri, ${setoran.length} setoran, ${absensi.length} absensi (${sizeEst})`,
+        ip,
       },
     })
   }

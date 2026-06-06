@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getIp } from '@/lib/get-ip'
 import { publicLimiter, loginLimiter, RateLimiterRes } from '@/lib/rate-limiter'
 import { verifyToken, COOKIE_NAME } from '@/lib/session'
+import { logRateLimit } from '@/lib/logger'
 
 // ── Path yang sepenuhnya di-skip middleware ───────────────────────────────────
 const BYPASS_PREFIXES = [
@@ -84,6 +85,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       await loginLimiter.consume(key)
     } catch (err) {
       if (err instanceof RateLimiterRes) {
+        logRateLimit({ path: pathname, ip, key })
         return tooManyRequests(
           err.msBeforeNext,
           'Terlalu banyak percobaan login. Coba lagi dalam 1 jam.',
@@ -98,6 +100,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       await publicLimiter.consume(ip)
     } catch (err) {
       if (err instanceof RateLimiterRes) {
+        logRateLimit({ path: pathname, ip, key: ip })
         return tooManyRequests(
           err.msBeforeNext,
           'Terlalu banyak permintaan. Silakan tunggu sebentar.',
