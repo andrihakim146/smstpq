@@ -56,9 +56,27 @@ export default function LoginPage() {
           body:    JSON.stringify({ pin }),
         })
 
-        const data = await res.json()
+        const text = await res.text()
+        let data: {
+          success?:     boolean
+          error?:       string
+          lockedUntil?: number
+          user?:        { peran: string }
+        } = {}
 
-        if (res.ok && data.success) {
+        if (text) {
+          try {
+            data = JSON.parse(text)
+          } catch {
+            setError('Server mengembalikan respons tidak valid. Coba lagi.')
+            return
+          }
+        } else if (!res.ok) {
+          setError(`Server error (${res.status}). Periksa konfigurasi database di Netlify.`)
+          return
+        }
+
+        if (res.ok && data.success && data.user) {
           // Redirect sesuai peran
           const dest = data.user.peran === 'ADMIN' ? '/admin/dashboard' : '/pengajar/dashboard'
           router.push(dest)
@@ -68,7 +86,7 @@ export default function LoginPage() {
         // Akun terkunci (423)
         if (res.status === 423 && data.lockedUntil) {
           setLockUntil(data.lockedUntil)
-          setError(data.error)
+          setError(data.error ?? 'Akun terkunci sementara.')
           setPin('')
           return
         }

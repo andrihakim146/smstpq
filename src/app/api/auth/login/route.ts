@@ -82,11 +82,27 @@ export async function POST(request: NextRequest) {
     id: string; nama: string; peran: string; pinHash: string
   } | null = null
 
+  if (!process.env.DATABASE_URL) {
+    return NextResponse.json(
+      { error: 'Database belum dikonfigurasi di server. Hubungi admin.' },
+      { status: 503 },
+    )
+  }
+
   // Ambil seluruh pengajar aktif (jumlah kecil, < 50 di TPQ)
-  const pengajarList = await prisma.pengajar.findMany({
-    where:  { isActive: true },
-    select: { id: true, nama: true, peran: true, pinHash: true },
-  })
+  let pengajarList: { id: string; nama: string; peran: string; pinHash: string }[]
+  try {
+    pengajarList = await prisma.pengajar.findMany({
+      where:  { isActive: true },
+      select: { id: true, nama: true, peran: true, pinHash: true },
+    })
+  } catch (err) {
+    console.error('[login] Database error:', err)
+    return NextResponse.json(
+      { error: 'Database tidak dapat dihubungi. Periksa koneksi Supabase di Netlify.' },
+      { status: 503 },
+    )
+  }
 
   for (const p of pengajarList) {
     const match = await bcrypt.compare(pin, p.pinHash)
