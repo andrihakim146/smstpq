@@ -41,7 +41,10 @@ export default function AdminExportPage() {
   const [endDate,    setEndDate]    = useState('')
 
   useEffect(() => {
-    fetch('/api/admin/kelas').then((r) => r.json()).then(setKelasList).catch(() => {})
+    fetch('/api/admin/kelas')
+      .then((r) => r.json())
+      .then((data) => setKelasList(Array.isArray(data) ? data : []))
+      .catch(() => {})
   }, [])
 
   const activeConfig = TYPE_CONFIG.find((t) => t.value === selectedType)!

@@ -198,7 +198,10 @@ export default function AdminSantriPage() {
   }, [q, filterKelas, filterStatus, page])
 
   useEffect(() => {
-    fetch('/api/admin/kelas').then((r) => r.json()).then(setKelasList).catch(() => {})
+    fetch('/api/admin/kelas')
+      .then((r) => r.json())
+      .then((data) => setKelasList(Array.isArray(data) ? data : []))
+      .catch(() => {})
   }, [])
 
   useEffect(() => { fetchSantri() }, [fetchSantri])

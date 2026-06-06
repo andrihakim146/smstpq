@@ -100,10 +100,13 @@ async function main() {
     "Qiroati 2",
   ]
 
-  await prisma.kitab.createMany({
-    data:            kitabList.map((nama) => ({ nama, isActive: true })),
-    skipDuplicates:  true,
-  })
+  // Gunakan upsert per nama agar seed idempoten (aman dijalankan berulang)
+  for (const nama of kitabList) {
+    const existing = await prisma.kitab.findFirst({ where: { nama } })
+    if (!existing) {
+      await prisma.kitab.create({ data: { nama, isActive: true } })
+    }
+  }
 
   console.log(`\n✅ Kitab referensi dibuat: ${kitabList.join(', ')}`)
 

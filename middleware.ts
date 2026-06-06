@@ -138,12 +138,13 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       return NextResponse.redirect(new URL('/pengajar/dashboard', request.url))
     }
 
-    // Teruskan request dengan informasi sesi di header (untuk Server Components)
-    const response = NextResponse.next()
-    response.headers.set('x-user-id',    session.id)
-    response.headers.set('x-user-nama',  session.nama)
-    response.headers.set('x-user-peran', session.peran)
-    return response
+    // Teruskan request dengan informasi sesi di header REQUEST
+    // (bukan response header) agar API route dapat membacanya via getSessionFromHeaders()
+    const requestHeaders = new Headers(request.headers)
+    requestHeaders.set('x-user-id',    session.id)
+    requestHeaders.set('x-user-nama',  session.nama)
+    requestHeaders.set('x-user-peran', session.peran)
+    return NextResponse.next({ request: { headers: requestHeaders } })
   }
 
   // ── 5. Redirect /login jika sudah login ──────────────────────────────────
