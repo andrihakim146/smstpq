@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getIp } from '@/lib/get-ip'
 import { publicLimiter, loginLimiter, RateLimiterRes } from '@/lib/rate-limiter'
-import { verifyToken, COOKIE_NAME } from '@/lib/session'
+import { verifyTokenEdge } from '@/lib/session-edge'
+import { COOKIE_NAME } from '@/lib/session'
 import { logRateLimit } from '@/lib/logger'
 
 // ── Path yang sepenuhnya di-skip middleware ───────────────────────────────────
@@ -114,7 +115,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
       return redirectToLogin(request, 'unauthenticated')
     }
 
-    const session = verifyToken(token)
+    const session = await verifyTokenEdge(token)
 
     // Token tidak valid / expired
     if (!session) {
@@ -143,7 +144,7 @@ export async function middleware(request: NextRequest): Promise<NextResponse> {
   if (pathname === '/login') {
     const token = request.cookies.get(COOKIE_NAME)?.value
     if (token) {
-      const session = verifyToken(token)
+      const session = await verifyTokenEdge(token)
       if (session) {
         const dest = session.peran === 'ADMIN' ? '/admin/dashboard' : '/pengajar/dashboard'
         return NextResponse.redirect(new URL(dest, request.url))

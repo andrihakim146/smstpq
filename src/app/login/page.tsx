@@ -1,19 +1,41 @@
 'use client'
 
-import { useState, useRef, useTransition, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState, useRef, useTransition, useEffect, Suspense } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 
 export default function LoginPage() {
-  const router    = useRouter()
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen bg-slate-50 flex items-center justify-center">
+        <p className="text-slate-400 text-sm">Memuat...</p>
+      </div>
+    }>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
+function LoginForm() {
+  const searchParams  = useSearchParams()
   const inputRef  = useRef<HTMLInputElement>(null)
   const [pin, setPin]     = useState('')
   const [error, setError] = useState<string | null>(null)
   const [lockUntil, setLockUntil] = useState<number | null>(null)
   const [countdown, setCountdown] = useState(0)
   const [isPending, startTransition] = useTransition()
+
+  // Tampilkan pesan dari redirect middleware (?reason=expired|unauthenticated)
+  useEffect(() => {
+    const reason = searchParams.get('reason')
+    if (reason === 'expired') {
+      setError('Sesi Anda telah berakhir. Silakan login kembali.')
+    } else if (reason === 'unauthenticated') {
+      setError('Silakan login untuk melanjutkan.')
+    }
+  }, [searchParams])
 
   // Countdown timer saat akun terkunci
   useEffect(() => {
@@ -51,9 +73,10 @@ export default function LoginPage() {
     startTransition(async () => {
       try {
         const res = await fetch('/api/auth/login', {
-          method:  'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body:    JSON.stringify({ pin }),
+          method:      'POST',
+          headers:     { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body:        JSON.stringify({ pin }),
         })
 
         const text = await res.text()
@@ -77,9 +100,10 @@ export default function LoginPage() {
         }
 
         if (res.ok && data.success && data.user) {
-          // Redirect sesuai peran
+          // Full page navigation agar cookie httpOnly terbaca middleware
           const dest = data.user.peran === 'ADMIN' ? '/admin/dashboard' : '/pengajar/dashboard'
-          router.push(dest)
+          const from = searchParams.get('from')
+          window.location.assign(from && from.startsWith('/') ? from : dest)
           return
         }
 
