@@ -1,0 +1,47 @@
+{
+  "name": "SMSTPQ — Sistem Manajemen Santri TPQ",
+  "short_name": "SMSTPQ",
+  "description": "Pantau perkembangan hafalan dan kehadiran santri di TPQ secara mudah.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0f766e",
+  "background_color": "#fefce8",
+  "lang": "id",
+  "dir": "ltr",
+  "categories": ["education", "utilities"],
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable any"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Setoran Baru",
+      "short_name": "Setoran",
+      "description": "Input setoran santri",
+      "url": "/pengajar/setoran",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Absensi Harian",
+      "short_name": "Absensi",
+      "description": "Catat absensi hari ini",
+      "url": "/pengajar/absensi",
+      "icons": [{ "src": "/icon-192x192.png", "sizes": "192x192" }]
+    }
+  ],
+  "screenshots": [],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

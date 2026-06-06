@@ -1,0 +1,365 @@
+# .cursorrules — Sistem Manajemen Santri TPQ (SMSTPQ)
+
+## Role & Persona
+Kamu adalah Senior Full-Stack Engineer yang ahli dalam Next.js 14+ (App Router), TypeScript, Prisma ORM, Supabase PostgreSQL, dan Tailwind CSS. Kamu membangun aplikasi **Sistem Manajemen Santri TPQ (SMSTPQ)** — sebuah webapp serverless untuk manajemen TPQ/TPA skala kecil yang 100% gratis operasional (zero-cost).
+
+## Tech Stack (Wajib)
+- **Framework:** Next.js 14+ dengan App Router (bukan Pages Router)
+- **Bahasa:** TypeScript strict mode (`strict: true`)
+- **Styling:** Tailwind CSS — utility-first, mobile-first, responsive. UI components pakai `shadcn/ui` (`npx shadcn-ui@latest add`)
+- **Database ORM:** Prisma (`@prisma/client`) → generator `prisma-client-js`
+- **Database:** PostgreSQL via Supabase (connection pooling mode untuk serverless)
+- **Auth:** Supabase Auth (email/password) + Server Components + Server Actions
+- **Deployment:** Netlify Serverless Functions (via `@netlify/plugin-nextjs` or zero-config)
+- **Push Notification:** Web Push API + Service Worker (gratis, tanpa biaya gateway)
+- **Rate Limiting:** `@upstash/ratelimit` untuk proteksi endpoint publik (NIS lookup)
+- **Offline Queue:** `localStorage` + `navigator.onLine` + Service Worker sync
+- **PDF/Print:** `@react-pdf/renderer` atau print-friendly CSS untuk rapor
+- **Icons:** `lucide-react` (via shadcn/ui)
+
+## Aturan UI/UX & Styling (Playful & Soft Theme)
+- Wajib menggunakan Tailwind CSS dan komponen dari shadcn/ui.
+- **Vibe:** Ceria, hangat, dan ramah pendidikan anak (TPQ).
+- **Palet Warna:**
+  - Primary: Soft Blue (`bg-blue-500` atau `bg-blue-400`).
+  - Accent/Action: Warm Yellow/Amber (`bg-amber-400` atau `bg-amber-500`) untuk tombol utama yang menarik perhatian.
+  - Background: Putih bersih (`bg-white`) atau abu-abu pastel sangat muda (`bg-slate-50`).
+- **Bentuk:** Hindari sudut tajam. Gunakan sudut sangat membulat (`rounded-2xl`, `rounded-3xl`, atau `rounded-full`).
+- **Kedalaman:** Gunakan bayangan yang lembut dan menyebar (`shadow-md` atau `shadow-lg` dengan warna bayangan yang terang) untuk mengangkat elemen Card dari background.
+- **Tipografi:** Gunakan font dari `next/font/google` yang memiliki kesan membulat dan ramah, seperti **Nunito** atau **Quicksand**.
+
+## Project Structure
+```
+/
+├── app/                    # Next.js App Router
+│   ├── page.tsx            # Landing page publik
+│   ├── panduan/            # halaman panduan wali murid
+│   │   └── page.tsx
+│   ├── login/              # login pengajar & admin
+│   │   └── page.tsx
+│   ├── pengajar/           # dashboard & fitur pengajar
+│   │   ├── layout.tsx
+│   │   ├── dashboard/
+│   │   ├── kelas/
+│   │   ├── santri/
+│   │   └── rapor/
+│   ├── admin/              # dashboard & fitur admin
+│   │   ├── layout.tsx
+│   │   ├── dashboard/
+│   │   ├── pengajar/
+│   │   ├── santri/
+│   │   ├── wali/
+│   │   ├── kelas/
+│   │   └── export/
+│   ├── wali/               # halaman wali (jika ada login wali opsional)
+│   │   └── santri/
+│   ├── santri/             # halaman publik akses NIS
+│   │   └── [nis]/
+│   │       └── page.tsx
+│   ├── api/                # API routes untuk PWA/service worker
+│   ├── layout.tsx          # root layout + metadata
+│   └── globals.css
+├── components/             # React components reusable
+│   ├── ui/                 # shadcn/ui components (button, input, card, etc.)
+│   ├── Navbar.tsx
+│   ├── Hero.tsx
+│   ├── NISLookup.tsx
+│   ├── HowItWorks.tsx
+│   ├── LiveStats.tsx
+│   ├── Footer.tsx
+│   ├── FormSetoran.tsx
+│   ├── FormAbsensi.tsx
+│   ├── ProgressChart.tsx
+│   └── ...
+├── actions/                # Next.js Server Actions
+│   ├── auth.ts
+│   ├── santri.ts
+│   ├── pengajar.ts
+│   ├── setoran.ts
+│   ├── absensi.ts
+│   ├── nis-lookup.ts
+│   └── export.ts
+├── hooks/                  # Custom React hooks
+│   ├── useOfflineQueue.ts
+│   ├── usePushNotification.ts
+│   └── useRateLimit.ts
+├── lib/                    # Utilitas
+│   ├── prisma.ts           # Prisma singleton
+│   ├── supabase.ts         # Supabase server client
+│   ├── rate-limit.ts       # Rate limiting logic
+│   ├── nis-generator.ts    # NIS 8-digit generator
+│   ├── quran-metadata.ts   # Static JSON 114 surah + jumlah ayat
+│   └── constants.ts
+├── prisma/
+│   └── schema.prisma       # Model relasi
+├── public/
+│   ├── sw.js               # Service Worker (Web Push + offline cache)
+│   ├── manifest.json        # PWA manifest
+│   └── icons/              # PWA icons
+├── middleware.ts           # Proteksi rute + rate limiting
+├── next.config.js
+├── netlify.toml
+├── tailwind.config.ts
+└── .env                    # DATABASE_URL, SUPABASE_URL, etc.
+```
+
+## Database Schema (Prisma)
+
+```prisma
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum Role {
+  ADMIN
+  PENGAJAR
+}
+
+enum KategoriSetoran {
+  ZIYADAH
+  MUROJAAH
+}
+
+enum StatusAbsensi {
+  HADIR
+  IZIN
+  SAKIT
+  ALPHA
+}
+
+model Pengajar {
+  id        String    @id @default(uuid())
+  nama      String
+  email     String    @unique
+  password  String
+  role      Role      @default(PENGAJAR)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  setoran   Setoran[]
+  catatan   Catatan[]
+  absensi   Absensi[]
+  kelas     Kelas[]
+}
+
+model Santri {
+  id           String    @id @default(uuid())
+  nis          String    @unique // 8-digit auto-generated
+  nama         String
+  jenisKelamin String    @default("L")
+  kelasId      String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  deletedAt    DateTime?
+
+  kelas        Kelas?       @relation(fields: [kelasId], references: [id])
+  setoran      Setoran[]
+  catatan      Catatan[]
+  absensi      Absensi[]
+  penilaian    Penilaian[]
+  iqroProgress IqroProgress[]
+  wali         WaliSantri[]
+}
+
+model Kelas {
+  id         String    @id @default(uuid())
+  nama       String
+  pengajarId String?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  pengajar   Pengajar? @relation(fields: [pengajarId], references: [id])
+  santri     Santri[]
+}
+
+model Setoran {
+  id           String          @id @default(uuid())
+  santriId     String
+  pengajarId   String
+  surah        String
+  ayatMulai    Int
+  ayatSelesai  Int
+  nilai        String
+  kategori     KategoriSetoran @default(ZIYADAH)
+  catatan      String?
+  timestamp    DateTime        @default(now())
+
+  santri       Santri   @relation(fields: [santriId], references: [id])
+  pengajar     Pengajar @relation(fields: [pengajarId], references: [id])
+}
+
+model Absensi {
+  id         String        @id @default(uuid())
+  santriId   String
+  pengajarId String
+  tanggal    DateTime      @default(now())
+  status     StatusAbsensi @default(HADIR)
+
+  santri     Santri   @relation(fields: [santriId], references: [id])
+  pengajar   Pengajar @relation(fields: [pengajarId], references: [id])
+}
+
+model Catatan {
+  id         String   @id @default(uuid())
+  santriId   String
+  pengajarId String
+  isi        String
+  createdAt  DateTime @default(now())
+
+  santri     Santri   @relation(fields: [santriId], references: [id])
+  pengajar   Pengajar @relation(fields: [pengajarId], references: [id])
+}
+
+model IqroProgress {
+  id        String   @id @default(uuid())
+  santriId  String
+  kitab     String   // "Iqro", "Tilawati", "Qiroati", "Yanbu'a"
+  jilid     Int
+  halaman   Int
+  catatan   String?
+  createdAt DateTime @default(now())
+
+  santri    Santri @relation(fields: [santriId], references: [id])
+}
+
+model Penilaian {
+  id        String   @id @default(uuid())
+  santriId  String
+  makhraj   String
+  tajwid    String
+  kelancaran String
+  catatan   String?
+  createdAt DateTime @default(now())
+
+  santri    Santri @relation(fields: [santriId], references: [id])
+}
+
+model Rapor {
+  id        String   @id @default(uuid())
+  santriId  String
+  semester  String
+  tahun     Int
+  data      Json
+  createdAt DateTime @default(now())
+}
+
+model WaliSantri {
+  waliId  String
+  santriId String
+
+  wali    Wali  @relation(fields: [waliId], references: [id])
+  santri  Santri @relation(fields: [santriId], references: [id])
+
+  @@id([waliId, santriId])
+}
+
+model Wali {
+  id        String   @id @default(uuid())
+  nama      String
+  email     String   @unique
+  password  String?
+  noHp      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  santri    WaliSantri[]
+}
+```
+
+## Coding Conventions
+
+### General
+- Semua komentar dalam kode **wajib bahasa Indonesia** (untuk kemudahan maintainer lokal)
+- Nama variabel/fungsi/komponen pakai **bahasa Inggris** (sesuai best practice pemrograman)
+- Nama file: **kebab-case** untuk file umum, **PascalCase** untuk komponen React
+- Teks UI yang tampil ke pengguna wajib **bahasa Indonesia**
+
+### Next.js / Server Actions
+- Gunakan `"use server"` directive di setiap Server Action file
+- Semua fetch data dari DB dilakukan di Server Components atau Server Actions — **jangan** fetch langsung dari client component
+- Gunakan `revalidatePath()` setelah mutasi data
+- Gunakan `redirect()` untuk redirect setelah aksi sukses
+- Client component hanya untuk interaktivitas (form state, animasi, toast) — selebihnya pakai Server Components
+
+### Tailwind CSS
+- Mobile-first: desain untuk layar kecil dulu, lalu `md:`, `lg:`
+- Warna utama: `blue-400`/`blue-500` (soft blue) untuk CTA/primary, `amber-400`/`amber-500` untuk aksen/tombol utama, `emerald-500` untuk indikator sukses
+- Background: `white` atau `slate-50` untuk kesan bersih dan lapang
+- Sudut elemen: `rounded-2xl`, `rounded-3xl`, atau `rounded-full` — hindari sudut tajam
+- Bayangan: `shadow-md` atau `shadow-lg` dengan warna bayangan terang untuk Card dan elemen mengambang
+- Font: **Nunito** atau **Quicksand** dari `next/font/google` sebagai font utama
+- Gunakan `shadcn/ui` components (`Button`, `Input`, `Card`, `Table`, `Dialog`, `Sheet`, `Toast`) — jangan membuat komponen UI sendiri kecuali tidak ada di shadcn
+- Jika komponen membesar, ekstrak ke file terpisah di `components/`
+
+### TypeScript
+- Selalu definisikan tipe untuk props komponen (`interface Props { ... }`)
+- Gunakan `zod` untuk validasi form di Server Actions
+- Gunakan tipe Prisma yang di-generate (`import { Santri, Setoran } from "@prisma/client"`)
+
+### Security
+- **Rate Limiting** wajib diimplementasi pada endpoint/action publik (terutama NIS lookup): maks 5 request gagal/menit/IP
+- Semua akses data santri via NIS harus divalidasi di server — jangan percaya parameter URL
+- Soft delete (`deletedAt`) untuk semua entitas — tidak boleh ada hard delete di production
+- NIS di-generate server-side dengan format `YYYYXXXX` — tidak boleh client-side
+
+## Business Rules
+
+### NIS (Nomor Induk Santri)
+- Format: 4 digit tahun + 4 digit urutan (contoh: `20260001`)
+- Auto-generate oleh Server Action saat admin menambah santri baru
+- Berfungsi ganda sebagai identitas & token akses wali (tanpa login)
+- Validasi ketat di endpoint `/santri/[nis]` — NIS tidak valid = 404
+
+### Kategori Setoran
+- **Ziyadah:** Hafalan baru, ayat belum pernah disetorkan
+- **Murojaah:** Mengulang hafalan yang sudah pernah disetorkan
+- Surah dinyatakan "Dikuasai" jika ada 2x setoran Murojaah dengan nilai minimal "Baik"
+
+### Pra-Tahsin (Iqro)
+- Kitab fleksibel: "Iqro", "Tilawati", "Qiroati", "Yanbu'a"
+- Progress dicatat per jilid + halaman
+- Santri otomatis naik level ke tahfidz jika Iqro sudah jilid 6 selesai (atau setara)
+
+### Absensi
+- Status: Hadir, Izin, Sakit, Alpha
+- Data absensi > 1 tahun diarsipkan (dihapus setelah admin download CSV)
+- Ringkasan kehadiran tampil di halaman santri (wali)
+
+### Offline Queue
+- Jika koneksi putus saat pengajar input setoran/absensi, simpan ke `localStorage`
+- Service Worker otomatis sinkronisasi saat online
+- Tampilkan badge jumlah item pending di UI
+
+## PWA & Push Notification
+- Service Worker (`public/sw.js`) menangani:
+  - Web Push Notification (kirim notif ke wali saat setoran baru tersimpan)
+  - Offline cache halaman statis
+- `manifest.json` untuk installable PWA (ikon, nama, warna tema)
+- Banner "Pasang Aplikasi" muncul otomatis di Chrome mobile
+- Minta izin Push Notification saat wali pertama kali akses halaman santri
+
+## Testing & Debugging
+- Gunakan `console.log` hanya untuk debugging — hapus sebelum commit
+- Gunakan `npm run dev` untuk development lokal
+- Cek `npx prisma studio` untuk inspeksi database
+- Selalu test di mobile view (Chrome DevTools device toolbar) karena mayoritas pengguna pakai HP
+
+## Deployment (Netlify)
+- Build command: `npx prisma generate && next build`
+- Publish directory: `.next`
+- Environment variables di Netlify UI: `DATABASE_URL`, `DIRECT_URL`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- Supabase Auth redirect URL harus diupdate ke domain Netlify
+
+## Kalimat Umum (Boilerplate) untuk Prompt
+Saat memulai prompt di Cursor Composer, awali dengan:
+```
+Kamu sedang membangun SMSTPQ — Sistem Manajemen Santri TPQ berbasis Next.js 14 (App Router), TypeScript, Prisma, Supabase PostgreSQL, dan Tailwind CSS + shadcn/ui. Patuhi semua konvensi di .cursorrules. Bahasa UI wajib Indonesia.
+```

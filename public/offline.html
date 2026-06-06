@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Offline — SMSTPQ</title>
+  <style>
+    body { font-family: system-ui, sans-serif; display: flex; align-items: center;
+           justify-content: center; min-height: 100vh; margin: 0; background: #f8fafc; }
+    .card { text-align: center; padding: 2rem; max-width: 320px; }
+    .icon { font-size: 3rem; margin-bottom: 1rem; }
+    h1 { font-size: 1.25rem; color: #1e293b; margin: 0 0 .5rem; }
+    p { color: #64748b; font-size: .875rem; margin: 0 0 1.5rem; }
+    button { background: #3b82f6; color: white; border: none; padding: .625rem 1.25rem;
+             border-radius: 9999px; font-size: .875rem; font-weight: 600; cursor: pointer; }
+    button:hover { background: #2563eb; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="icon">📡</div>
+    <h1>Tidak Ada Koneksi</h1>
+    <p>Periksa koneksi internet Anda dan coba lagi.</p>
+    <button onclick="location.reload()">Coba Lagi</button>
+  </div>
+</body>
+</html>

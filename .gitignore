@@ -2,3 +2,13 @@ node_modules/
 .next/
 .env
 .env.local
+
+# Prisma generated client
+generated/
+
+# Netlify build output
+.netlify/
+
+# Build artifacts
+*.tsbuildinfo
+out/

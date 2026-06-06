@@ -1,0 +1,170 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/client"
+}
+
+datasource db {
+  provider = "postgresql"
+  // URL dikonfigurasi di prisma.config.ts (Prisma v7)
+}
+
+// ─── Enumerasi ────────────────────────────────────────────────────────────────
+
+enum Role {
+  ADMIN
+  PENGAJAR
+}
+
+enum TipeSetoran {
+  AL_QURAN
+  PRA_TAHSIN
+}
+
+enum KategoriSetoran {
+  ZIYADAH
+  MUROJAAH
+}
+
+enum StatusAbsensi {
+  HADIR
+  TIDAK_HADIR
+  IZIN
+  SAKIT
+}
+
+// ─── Model Utama ──────────────────────────────────────────────────────────────
+
+/// Akun pengajar (termasuk admin). PIN di-hash dengan bcrypt.
+model Pengajar {
+  id        String   @id @default(uuid()) @db.Uuid
+  nama      String
+  pinHash   String
+  peran     Role     @default(PENGAJAR)
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  setoran      Setoran[]
+  catatan      Catatan[]
+  logAktivitas LogAktivitas[]
+}
+
+/// Data kelas/kelompok santri (misal "Juz 30-A", "Iqro 2-B")
+model Kelas {
+  id   String @id @default(uuid()) @db.Uuid
+  nama String
+
+  santri Santri[]
+}
+
+/// Data santri. NIS 8-digit (YYYYNNNN) digunakan sebagai akses wali.
+model Santri {
+  id                 String    @id @default(uuid()) @db.Uuid
+  nis                String    @unique
+  nama               String
+  kelasId            String?   @db.Uuid
+  targetPembelajaran String?
+  deadlineTarget     DateTime? @db.Date
+  noWaWali           String?
+  isActive           Boolean   @default(true)
+  createdAt          DateTime  @default(now())
+
+  kelas             Kelas?             @relation(fields: [kelasId], references: [id])
+  setoran           Setoran[]
+  catatan           Catatan[]
+  absensi           Absensi[]
+  pushSubscriptions PushSubscription[]
+}
+
+/// Langganan push notification per perangkat wali/pengajar.
+/// Satu santri bisa memiliki banyak subscription (banyak device).
+model PushSubscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  santriId  String   @db.Uuid
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  santri Santri @relation(fields: [santriId], references: [id], onDelete: Cascade)
+
+  @@index([santriId])
+}
+
+/// Referensi kitab Pra-Tahsin (Iqro, Tilawati, Yanbu'a, dll).
+/// Admin dapat menambah, mengedit, dan menonaktifkan (soft delete).
+model Kitab {
+  id        String   @id @default(uuid()) @db.Uuid
+  nama      String
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  setoran Setoran[]
+}
+
+/// Catatan setoran hafalan (Al-Qur'an) dan perkembangan Pra-Tahsin (kitab/halaman).
+/// Kolom surah/ayat diisi hanya untuk AL_QURAN; kitabId/halaman hanya untuk PRA_TAHSIN.
+model Setoran {
+  id            String          @id @default(uuid()) @db.Uuid
+  santriId      String          @db.Uuid
+  pengajarId    String          @db.Uuid
+  tanggal       DateTime        @db.Date
+  tipe          TipeSetoran
+  /// Nama surah (validasi dari 114 surah statis) — hanya untuk AL_QURAN
+  surah         String?
+  ayatMulai     Int?
+  ayatSelesai   Int?
+  /// Foreign key ke Kitab — hanya untuk PRA_TAHSIN
+  kitabId       String?         @db.Uuid
+  halamanMulai  Int?
+  halamanSelesai Int?
+  /// Kategori hanya untuk AL_QURAN (null pada PRA_TAHSIN)
+  kategori      KategoriSetoran?
+  nilai         String?
+  createdAt     DateTime        @default(now())
+
+  santri   Santri   @relation(fields: [santriId], references: [id])
+  pengajar Pengajar @relation(fields: [pengajarId], references: [id])
+  kitab    Kitab?   @relation(fields: [kitabId], references: [id])
+}
+
+/// Catatan perkembangan santri yang ditulis pengajar (teks bebas).
+model Catatan {
+  id         String   @id @default(uuid()) @db.Uuid
+  santriId   String   @db.Uuid
+  pengajarId String   @db.Uuid
+  isi        String   @db.Text
+  createdAt  DateTime @default(now())
+
+  santri   Santri   @relation(fields: [santriId], references: [id])
+  pengajar Pengajar @relation(fields: [pengajarId], references: [id])
+}
+
+/// Absensi harian santri. Satu record per santri per tanggal.
+model Absensi {
+  id         String        @id @default(uuid()) @db.Uuid
+  santriId   String        @db.Uuid
+  tanggal    DateTime      @db.Date
+  status     StatusAbsensi @default(HADIR)
+  keterangan String?
+  createdAt  DateTime      @default(now())
+
+  santri Santri @relation(fields: [santriId], references: [id])
+
+  @@index([tanggal])
+  @@unique([santriId, tanggal])
+}
+
+/// Log aktivitas untuk kebutuhan audit (login gagal, reset PIN, ekspor, dll).
+/// pengajarId null jika aksi dilakukan oleh pengguna publik (wali/anonim).
+model LogAktivitas {
+  id         String   @id @default(uuid()) @db.Uuid
+  pengajarId String?  @db.Uuid
+  aksi       String
+  detail     String   @db.Text
+  ip         String
+  createdAt  DateTime @default(now())
+
+  pengajar Pengajar? @relation(fields: [pengajarId], references: [id])
+
+  @@index([createdAt])
+}

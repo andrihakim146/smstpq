@@ -1,0 +1,71 @@
+# ──────────────────────────────────────────────────────────────────────────────
+# SMSTPQ — Netlify Configuration
+# ──────────────────────────────────────────────────────────────────────────────
+
+[build]
+  command = "npx prisma generate && npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION    = "20"
+  NPM_FLAGS       = "--legacy-peer-deps"
+
+# Netlify Next.js plugin — handles SSR, API routes, image optimization
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
+# ── Scheduled Functions (Cron Jobs) ──────────────────────────────────────────
+
+# Retensi data absensi: setiap Minggu jam 02:00 UTC (09:00 WIB)
+[[scheduled_functions]]
+  name     = "weekly-retention"
+  schedule = "0 2 * * 0"
+
+# Notifikasi backup: setiap Minggu jam 03:00 UTC (10:00 WIB)
+[[scheduled_functions]]
+  name     = "weekly-backup-notify"
+  schedule = "0 3 * * 0"
+
+# ── Security Headers ──────────────────────────────────────────────────────────
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options                    = "DENY"
+    X-Content-Type-Options             = "nosniff"
+    X-XSS-Protection                   = "1; mode=block"
+    Referrer-Policy                    = "strict-origin-when-cross-origin"
+    Permissions-Policy                 = "camera=(), microphone=(), geolocation=()"
+    Strict-Transport-Security          = "max-age=63072000; includeSubDomains; preload"
+    Content-Security-Policy            = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://storage.googleapis.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https:; worker-src 'self'; manifest-src 'self'"
+
+# Aset statis Next.js — immutable cache 1 tahun
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Service Worker — tidak boleh di-cache
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "public, max-age=0, must-revalidate"
+    Service-Worker-Allowed = "/"
+
+# Manifest & icons — cache ringan
+[[headers]]
+  for = "/manifest.json"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+# Halaman wali santri — cache singkat dengan stale-while-revalidate
+[[headers]]
+  for = "/santri/*"
+  [headers.values]
+    Cache-Control = "public, s-maxage=30, stale-while-revalidate=59"
+
+# ── Redirect HTTP → HTTPS (Netlify handles ini otomatis, tapi eksplisit) ──────
+[[redirects]]
+  from   = "http://smstpq.netlify.app/*"
+  to     = "https://smstpq.netlify.app/:splat"
+  status = 301
+  force  = true
