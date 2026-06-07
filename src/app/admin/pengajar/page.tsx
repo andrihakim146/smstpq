@@ -237,6 +237,7 @@ export default function ManajemenPengajarPage() {
               Belum ada pengajar.
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow className="border-slate-100">
@@ -325,6 +326,7 @@ export default function ManajemenPengajarPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

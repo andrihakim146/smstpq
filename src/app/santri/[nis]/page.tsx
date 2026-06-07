@@ -155,41 +155,48 @@ export default async function SantriDetailPage({
     <div className="min-h-screen bg-slate-50">
       {/* ── Topbar ─────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-20 bg-white border-b border-slate-100 shadow-sm">
-        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-3">
-          <Link href="/">
-            <Button variant="ghost" size="sm" className="rounded-full gap-1.5 text-slate-500 hover:text-slate-800">
+        <div className="max-w-2xl mx-auto px-4 h-14 flex items-center gap-2 sm:gap-3">
+          <Link href="/" className="shrink-0">
+            <Button variant="ghost" size="sm" className="rounded-full gap-1.5 text-slate-500 hover:text-slate-800 px-2 sm:px-3">
               <ArrowLeftIcon className="w-4 h-4" />
               <span className="hidden sm:inline">Beranda</span>
             </Button>
           </Link>
-          <span className="text-slate-300">|</span>
           <div className="flex-1 min-w-0">
             <p className="font-bold text-slate-800 text-sm truncate">{santri.nama}</p>
-            <p className="text-xs text-slate-400 font-mono">NIS {santri.nis}</p>
+            <p className="text-xs text-slate-400 font-mono truncate">NIS {santri.nis}</p>
           </div>
-          <NotificationButton santriNis={santri.nis} />
-          {santri.noWaWali && setoran.length > 0 && (
-            <WhatsAppButton
-              setoran={{
-                tanggal:        setoran[0].tanggal,
-                tipe:           setoran[0].tipe,
-                surah:          setoran[0].surah,
-                ayatMulai:      setoran[0].ayatMulai,
-                ayatSelesai:    setoran[0].ayatSelesai,
-                kategori:       setoran[0].kategori,
-                kitabNama:      setoran[0].kitab?.nama,
-                halamanMulai:   setoran[0].halamanMulai,
-                halamanSelesai: setoran[0].halamanSelesai,
-                nilai:          setoran[0].nilai,
-              }}
-              santri={{ nama: santri.nama, nis: santri.nis, noWaWali: santri.noWaWali }}
-              className="text-xs px-3 py-1.5"
-            />
-          )}
+          <div className="flex items-center gap-1.5 shrink-0">
+            <div className="hidden sm:block">
+              <NotificationButton santriNis={santri.nis} />
+            </div>
+            {santri.noWaWali && setoran.length > 0 && (
+              <WhatsAppButton
+                setoran={{
+                  tanggal:        setoran[0].tanggal,
+                  tipe:           setoran[0].tipe,
+                  surah:          setoran[0].surah,
+                  ayatMulai:      setoran[0].ayatMulai,
+                  ayatSelesai:    setoran[0].ayatSelesai,
+                  kategori:       setoran[0].kategori,
+                  kitabNama:      setoran[0].kitab?.nama,
+                  halamanMulai:   setoran[0].halamanMulai,
+                  halamanSelesai: setoran[0].halamanSelesai,
+                  nilai:          setoran[0].nilai,
+                }}
+                santri={{ nama: santri.nama, nis: santri.nis, noWaWali: santri.noWaWali }}
+                className="text-xs px-2 sm:px-3 py-1.5"
+              />
+            )}
+          </div>
         </div>
       </header>
 
       <div className="max-w-2xl mx-auto px-4 py-6 space-y-5">
+        {/* Notifikasi — selalu tampil di mobile */}
+        <div className="sm:hidden">
+          <NotificationButton santriNis={santri.nis} variant="banner" />
+        </div>
         {/* ── Info santri ────────────────────────────────────────────── */}
         <Card className="rounded-3xl border-0 shadow-md overflow-hidden">
           {/* Header card gradien */}

@@ -16,8 +16,13 @@ import {
 } from '@/components/ui/table'
 import {
   GraduationCap, Plus, Pencil, Loader2, Search,
-  UserCheck, UserX, ChevronLeft, ChevronRight,
+  UserCheck, ChevronLeft, ChevronRight, ArrowRightLeft,
 } from 'lucide-react'
+import {
+  STATUS_SANTRI_LABEL,
+  STATUS_SANTRI_BADGE,
+  type StatusSantri,
+} from '@/lib/santri-status'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface SantriItem {
@@ -25,6 +30,9 @@ interface SantriItem {
   nis:                string
   nama:               string
   isActive:           boolean
+  status:             StatusSantri
+  statusSejak:        string | null
+  statusCatatan:      string | null
   targetPembelajaran: string | null
   deadlineTarget:     string | null
   noWaWali:           string | null
@@ -77,6 +85,7 @@ function SantriFormDialog({
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
           nama:               nama.trim(),
           kelasId:            kelasId || null,
@@ -163,6 +172,126 @@ function SantriFormDialog({
   )
 }
 
+// ── Dialog ubah status santri ─────────────────────────────────────────────────
+function StatusChangeDialog({
+  open,
+  santri,
+  onClose,
+  onSaved,
+}: {
+  open:    boolean
+  santri:  SantriItem | null
+  onClose: () => void
+  onSaved: (s: SantriItem) => void
+}) {
+  const [status,   setStatus]   = useState<StatusSantri>('AKTIF')
+  const [sejak,    setSejak]    = useState('')
+  const [catatan,  setCatatan]  = useState('')
+  const [loading,  setLoading]  = useState(false)
+
+  useEffect(() => {
+    if (santri) {
+      setStatus(santri.status)
+      setSejak(santri.statusSejak ? santri.statusSejak.slice(0, 10) : new Date().toISOString().slice(0, 10))
+      setCatatan(santri.statusCatatan ?? '')
+    }
+  }, [santri, open])
+
+  async function handleSave() {
+    if (!santri) return
+    if (status !== 'AKTIF' && !sejak) {
+      toast.error('Tanggal status wajib diisi.')
+      return
+    }
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/admin/santri/${santri.id}`, {
+        method:      'PATCH',
+        headers:     { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          status,
+          statusSejak:   status === 'AKTIF' ? null : sejak,
+          statusCatatan: catatan.trim() || null,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error ?? 'Gagal menyimpan.'); return }
+      toast.success(`Status diubah menjadi ${STATUS_SANTRI_LABEL[status]}.`)
+      onSaved(data as SantriItem)
+      onClose()
+    } finally { setLoading(false) }
+  }
+
+  if (!santri) return null
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
+      <DialogContent className="rounded-3xl max-w-md">
+        <DialogHeader>
+          <DialogTitle>Ubah Status Santri</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3 py-2">
+          <div className="p-3 rounded-2xl bg-slate-50">
+            <p className="font-semibold text-slate-700">{santri.nama}</p>
+            <p className="text-xs text-slate-400 font-mono">{santri.nis}</p>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-semibold text-slate-700">Status</label>
+            <select
+              value={status}
+              onChange={(e) => setStatus(e.target.value as StatusSantri)}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+            >
+              {(Object.keys(STATUS_SANTRI_LABEL) as StatusSantri[]).map((s) => (
+                <option key={s} value={s}>{STATUS_SANTRI_LABEL[s]}</option>
+              ))}
+            </select>
+          </div>
+
+          {status !== 'AKTIF' && (
+            <>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700">
+                  Tanggal {STATUS_SANTRI_LABEL[status]} <span className="text-rose-500">*</span>
+                </label>
+                <Input type="date" value={sejak} onChange={(e) => setSejak(e.target.value)} />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-semibold text-slate-700">Keterangan</label>
+                <Input
+                  placeholder="Misal: Pindah ke TPQ Al-Ikhlas"
+                  value={catatan}
+                  onChange={(e) => setCatatan(e.target.value)}
+                />
+              </div>
+              <p className="text-xs text-amber-600 bg-amber-50 rounded-xl px-3 py-2">
+                Santri dengan status {STATUS_SANTRI_LABEL[status].toLowerCase()} akan dikeluarkan dari kelas
+                dan tidak muncul di daftar setoran pengajar.
+              </p>
+            </>
+          )}
+
+          {status === 'AKTIF' && santri.status !== 'AKTIF' && (
+            <p className="text-xs text-emerald-600 bg-emerald-50 rounded-xl px-3 py-2">
+              Santri akan diaktifkan kembali dan dapat ditugaskan ke kelas.
+            </p>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose} className="rounded-2xl">Batal</Button>
+          <Button onClick={handleSave} disabled={loading} className="rounded-2xl bg-blue-500 hover:bg-blue-600 text-white">
+            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Simpan Status'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ── Halaman ───────────────────────────────────────────────────────────────────
 export default function AdminSantriPage() {
   const [santriList, setSantriList] = useState<SantriItem[]>([])
@@ -172,6 +301,8 @@ export default function AdminSantriPage() {
   const [loading,    setLoading]    = useState(true)
   const [formOpen,   setFormOpen]   = useState(false)
   const [editItem,   setEditItem]   = useState<SantriItem | null>(null)
+  const [statusItem, setStatusItem] = useState<SantriItem | null>(null)
+  const [statusOpen, setStatusOpen] = useState(false)
 
   // Filters
   const [q,         setQ]         = useState('')
@@ -190,7 +321,7 @@ export default function AdminSantriPage() {
       if (qVal)  sp.set('q', qVal)
       if (kVal)  sp.set('kelasId', kVal)
       if (sVal)  sp.set('status', sVal)
-      const res  = await fetch(`/api/admin/santri?${sp}`)
+      const res  = await fetch(`/api/admin/santri?${sp}`, { credentials: 'include' })
       const data = await res.json()
       setSantriList(data.data ?? [])
       setTotal(data.total  ?? 0)
@@ -198,7 +329,7 @@ export default function AdminSantriPage() {
   }, [q, filterKelas, filterStatus, page])
 
   useEffect(() => {
-    fetch('/api/admin/kelas')
+    fetch('/api/admin/kelas', { credentials: 'include' })
       .then((r) => r.json())
       .then((data) => setKelasList(Array.isArray(data) ? data : []))
       .catch(() => {})
@@ -217,16 +348,8 @@ export default function AdminSantriPage() {
     fetchSantri(q, kelas, status, 1)
   }
 
-  async function toggleStatus(s: SantriItem) {
-    const res  = await fetch(`/api/admin/santri/${s.id}`, {
-      method:  'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body:    JSON.stringify({ isActive: !s.isActive }),
-    })
-    const data = await res.json()
-    if (!res.ok) { toast.error(data.error ?? 'Gagal.'); return }
-    toast.success(`Santri ${data.isActive ? 'diaktifkan' : 'dinonaktifkan'}.`)
-    setSantriList((prev) => prev.map((x) => x.id === s.id ? { ...x, isActive: data.isActive } : x))
+  function handleStatusSaved(updated: SantriItem) {
+    setSantriList((prev) => prev.map((x) => x.id === updated.id ? { ...x, ...updated } : x))
   }
 
   function handleSaved(updated: SantriItem) {
@@ -287,7 +410,10 @@ export default function AdminSantriPage() {
           >
             <option value="">Semua Status</option>
             <option value="aktif">Aktif</option>
-            <option value="nonaktif">Nonaktif</option>
+            <option value="lulus">Lulus</option>
+            <option value="pindah">Pindah</option>
+            <option value="keluar">Keluar</option>
+            <option value="nonaktif">Bukan Aktif</option>
           </select>
         </CardContent>
       </Card>
@@ -303,6 +429,7 @@ export default function AdminSantriPage() {
               <p className="text-slate-400">Tidak ada santri ditemukan.</p>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -316,7 +443,7 @@ export default function AdminSantriPage() {
               </TableHeader>
               <TableBody>
                 {santriList.map((s) => (
-                  <TableRow key={s.id} className={!s.isActive ? 'opacity-50' : undefined}>
+                  <TableRow key={s.id} className={s.status !== 'AKTIF' ? 'opacity-60' : undefined}>
                     <TableCell className="font-mono text-xs text-slate-500">{s.nis}</TableCell>
                     <TableCell>
                       <div>
@@ -335,11 +462,16 @@ export default function AdminSantriPage() {
                     <TableCell className="text-center text-sm text-slate-500">{s._count.setoran}</TableCell>
                     <TableCell className="text-center">
                       <Badge
-                        variant={s.isActive ? 'default' : 'secondary'}
-                        className={`rounded-full text-xs ${s.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-500'}`}
+                        variant="secondary"
+                        className={`rounded-full text-xs ${STATUS_SANTRI_BADGE[s.status] ?? 'bg-slate-100 text-slate-500'}`}
                       >
-                        {s.isActive ? 'Aktif' : 'Nonaktif'}
+                        {STATUS_SANTRI_LABEL[s.status] ?? s.status}
                       </Badge>
+                      {s.statusSejak && s.status !== 'AKTIF' && (
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          {new Date(s.statusSejak).toLocaleDateString('id-ID')}
+                        </p>
+                      )}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
@@ -354,12 +486,12 @@ export default function AdminSantriPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => toggleStatus(s)}
-                          className={`rounded-xl h-8 px-3 ${s.isActive ? 'text-slate-500 hover:text-rose-600 hover:bg-rose-50' : 'text-slate-400 hover:text-emerald-600 hover:bg-emerald-50'}`}
+                          onClick={() => { setStatusItem(s); setStatusOpen(true) }}
+                          className="rounded-xl h-8 px-3 text-slate-500 hover:text-amber-600 hover:bg-amber-50"
                         >
-                          {s.isActive
-                            ? <><UserX className="w-3.5 h-3.5 mr-1" />Nonaktif</>
-                            : <><UserCheck className="w-3.5 h-3.5 mr-1" />Aktifkan</>
+                          {s.status === 'AKTIF'
+                            ? <><ArrowRightLeft className="w-3.5 h-3.5 mr-1" />Status</>
+                            : <><UserCheck className="w-3.5 h-3.5 mr-1" />Status</>
                           }
                         </Button>
                       </div>
@@ -368,6 +500,7 @@ export default function AdminSantriPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>
@@ -398,6 +531,13 @@ export default function AdminSantriPage() {
           </div>
         </div>
       )}
+
+      <StatusChangeDialog
+        open={statusOpen}
+        santri={statusItem}
+        onClose={() => setStatusOpen(false)}
+        onSaved={handleStatusSaved}
+      />
 
       <SantriFormDialog
         open={formOpen}

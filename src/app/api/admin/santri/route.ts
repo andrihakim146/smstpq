@@ -2,13 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-server'
+import { optionalUuid, optionalDate } from '@/lib/zod-helpers'
+
+const statusEnum = z.enum(['AKTIF', 'LULUS', 'PINDAH', 'KELUAR'])
 
 const santriSchema = z.object({
   nama:               z.string().min(1).max(200).trim(),
-  kelasId:            z.string().uuid().optional().nullable(),
-  targetPembelajaran: z.string().max(500).optional().nullable(),
-  deadlineTarget:     z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().nullable(),
-  noWaWali:           z.string().max(20).optional().nullable(),
+  kelasId:            optionalUuid.optional(),
+  targetPembelajaran: z.preprocess(
+    (v) => (v === '' ? null : v),
+    z.string().max(500).nullable().optional(),
+  ),
+  deadlineTarget:     optionalDate.optional(),
+  noWaWali:           z.preprocess(
+    (v) => (v === '' ? null : v),
+    z.string().max(20).nullable().optional(),
+  ),
 })
 
 /** Generate NIS format YYYYxxxx — cari NIS terakhir tahun ini, increment. */
@@ -37,7 +46,7 @@ export async function GET(request: NextRequest) {
   const sp       = request.nextUrl.searchParams
   const q        = sp.get('q')?.trim() ?? ''
   const kelasId  = sp.get('kelasId') ?? undefined
-  const status   = sp.get('status')  // 'aktif' | 'nonaktif' | undefined
+  const status   = sp.get('status')  // AKTIF | LULUS | PINDAH | KELUAR | nonaktif
   const page     = Math.max(1, Number(sp.get('page') ?? '1'))
   const pageSize = 20
 
@@ -49,15 +58,18 @@ export async function GET(request: NextRequest) {
       ],
     } : {}),
     ...(kelasId ? { kelasId } : {}),
-    ...(status === 'aktif'    ? { isActive: true  } :
-        status === 'nonaktif' ? { isActive: false } : {}),
+    ...(status === 'aktif'    ? { status: 'AKTIF' as const } :
+        status === 'lulus'   ? { status: 'LULUS' as const } :
+        status === 'pindah'  ? { status: 'PINDAH' as const } :
+        status === 'keluar'  ? { status: 'KELUAR' as const } :
+        status === 'nonaktif' ? { status: { not: 'AKTIF' as const } } : {}),
   }
 
   const [total, santri] = await Promise.all([
     prisma.santri.count({ where }),
     prisma.santri.findMany({
       where,
-      orderBy: [{ isActive: 'desc' }, { nama: 'asc' }],
+      orderBy: [{ status: 'asc' }, { nama: 'asc' }],
       skip:  (page - 1) * pageSize,
       take:  pageSize,
       select: {
@@ -65,6 +77,9 @@ export async function GET(request: NextRequest) {
         nis:                true,
         nama:               true,
         isActive:           true,
+        status:             true,
+        statusSejak:        true,
+        statusCatatan:      true,
         targetPembelajaran: true,
         deadlineTarget:     true,
         noWaWali:           true,
@@ -99,13 +114,19 @@ export async function POST(request: NextRequest) {
       targetPembelajaran: parsed.data.targetPembelajaran ?? null,
       deadlineTarget:     parsed.data.deadlineTarget ? new Date(parsed.data.deadlineTarget) : null,
       noWaWali:           parsed.data.noWaWali ?? null,
+      status:             'AKTIF',
+      isActive:           true,
     },
     select: {
-      id:       true,
-      nis:      true,
-      nama:     true,
-      isActive: true,
-      kelas:    { select: { id: true, nama: true } },
+      id:            true,
+      nis:           true,
+      nama:          true,
+      isActive:      true,
+      status:        true,
+      statusSejak:   true,
+      statusCatatan: true,
+      kelas:         { select: { id: true, nama: true } },
+      _count:        { select: { setoran: true } },
     },
   })
 

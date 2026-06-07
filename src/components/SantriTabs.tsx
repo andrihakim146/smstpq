@@ -217,8 +217,8 @@ function AbsensiSummary({ absensi }: { absensi: AbsensiItem[] }) {
 export default function SantriTabs({ setoran, catatan, absensi }: SantriTabsProps) {
   return (
     <Tabs defaultValue="setoran">
-      <TabsList variant="line" className="w-full mb-4 border-b border-slate-200 rounded-none bg-transparent h-auto pb-0">
-        <TabsTrigger value="setoran" className="gap-1.5 pb-3 text-sm">
+      <TabsList variant="line" className="w-full mb-4 border-b border-slate-200 rounded-none bg-transparent h-auto pb-0 flex overflow-x-auto">
+        <TabsTrigger value="setoran" className="gap-1 sm:gap-1.5 pb-3 text-xs sm:text-sm shrink-0">
           <BookMarkedIcon className="w-4 h-4" />
           Setoran
           {setoran.length > 0 && (
@@ -227,7 +227,7 @@ export default function SantriTabs({ setoran, catatan, absensi }: SantriTabsProp
             </span>
           )}
         </TabsTrigger>
-        <TabsTrigger value="catatan" className="gap-1.5 pb-3 text-sm">
+        <TabsTrigger value="catatan" className="gap-1 sm:gap-1.5 pb-3 text-xs sm:text-sm shrink-0">
           <MessageSquareIcon className="w-4 h-4" />
           Catatan
           {catatan.length > 0 && (
@@ -236,7 +236,7 @@ export default function SantriTabs({ setoran, catatan, absensi }: SantriTabsProp
             </span>
           )}
         </TabsTrigger>
-        <TabsTrigger value="absensi" className="gap-1.5 pb-3 text-sm">
+        <TabsTrigger value="absensi" className="gap-1 sm:gap-1.5 pb-3 text-xs sm:text-sm shrink-0">
           <CalendarCheckIcon className="w-4 h-4" />
           Absensi
         </TabsTrigger>

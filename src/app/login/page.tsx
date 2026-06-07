@@ -26,6 +26,7 @@ function LoginForm() {
   const [lockUntil, setLockUntil] = useState<number | null>(null)
   const [countdown, setCountdown] = useState(0)
   const [isPending, startTransition] = useTransition()
+  const [accounts, setAccounts] = useState<{ id: string; nama: string; peran: string }[] | null>(null)
 
   // Tampilkan pesan dari redirect middleware (?reason=expired|unauthenticated)
   useEffect(() => {
@@ -61,9 +62,73 @@ function LoginForm() {
     return `${m}:${s}`
   }
 
+  async function doLogin(pinVal: string, pengajarId?: string) {
+    const res = await fetch('/api/auth/login', {
+      method:      'POST',
+      headers:     { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body:        JSON.stringify({ pin: pinVal, ...(pengajarId ? { pengajarId } : {}) }),
+    })
+
+    const text = await res.text()
+    let data: {
+      success?:       boolean
+      needSelection?: boolean
+      accounts?:      { id: string; nama: string; peran: string }[]
+      error?:         string
+      lockedUntil?:   number
+      user?:          { peran: string }
+    } = {}
+
+    if (text) {
+      try { data = JSON.parse(text) } catch {
+        setError('Server mengembalikan respons tidak valid. Coba lagi.')
+        return
+      }
+    } else if (!res.ok) {
+      setError(`Server error (${res.status}). Periksa konfigurasi database di Netlify.`)
+      return
+    }
+
+    if (data.needSelection && data.accounts && data.accounts.length > 1) {
+      setAccounts(data.accounts)
+      return
+    }
+
+    if (res.ok && data.success && data.user) {
+      const dest = data.user.peran === 'ADMIN' ? '/admin/dashboard' : '/pengajar/dashboard'
+      const from = searchParams.get('from')
+      window.location.assign(from && from.startsWith('/') ? from : dest)
+      return
+    }
+
+    if (res.status === 423 && data.lockedUntil) {
+      setLockUntil(data.lockedUntil)
+      setError(data.error ?? 'Akun terkunci sementara.')
+      setPin('')
+      setAccounts(null)
+      return
+    }
+
+    if (res.status === 429) {
+      const retryAfter = Number(res.headers.get('Retry-After') ?? 60)
+      setLockUntil(Date.now() + retryAfter * 1000)
+      setError(data.error ?? 'Terlalu banyak percobaan. Coba lagi nanti.')
+      setPin('')
+      setAccounts(null)
+      return
+    }
+
+    setError(data.error ?? 'Login gagal. Periksa PIN Anda.')
+    setPin('')
+    setAccounts(null)
+    inputRef.current?.focus()
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+    setAccounts(null)
 
     if (pin.length < 4) {
       setError('PIN minimal 4 digit.')
@@ -71,63 +136,16 @@ function LoginForm() {
     }
 
     startTransition(async () => {
-      try {
-        const res = await fetch('/api/auth/login', {
-          method:      'POST',
-          headers:     { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body:        JSON.stringify({ pin }),
-        })
+      try { await doLogin(pin) } catch {
+        setError('Terjadi kesalahan koneksi. Coba lagi.')
+      }
+    })
+  }
 
-        const text = await res.text()
-        let data: {
-          success?:     boolean
-          error?:       string
-          lockedUntil?: number
-          user?:        { peran: string }
-        } = {}
-
-        if (text) {
-          try {
-            data = JSON.parse(text)
-          } catch {
-            setError('Server mengembalikan respons tidak valid. Coba lagi.')
-            return
-          }
-        } else if (!res.ok) {
-          setError(`Server error (${res.status}). Periksa konfigurasi database di Netlify.`)
-          return
-        }
-
-        if (res.ok && data.success && data.user) {
-          // Full page navigation agar cookie httpOnly terbaca middleware
-          const dest = data.user.peran === 'ADMIN' ? '/admin/dashboard' : '/pengajar/dashboard'
-          const from = searchParams.get('from')
-          window.location.assign(from && from.startsWith('/') ? from : dest)
-          return
-        }
-
-        // Akun terkunci (423)
-        if (res.status === 423 && data.lockedUntil) {
-          setLockUntil(data.lockedUntil)
-          setError(data.error ?? 'Akun terkunci sementara.')
-          setPin('')
-          return
-        }
-
-        // Rate limited (429)
-        if (res.status === 429) {
-          const retryAfter = Number(res.headers.get('Retry-After') ?? 60)
-          setLockUntil(Date.now() + retryAfter * 1000)
-          setError(data.error ?? 'Terlalu banyak percobaan. Coba lagi nanti.')
-          setPin('')
-          return
-        }
-
-        setError(data.error ?? 'Login gagal. Periksa PIN Anda.')
-        setPin('')
-        inputRef.current?.focus()
-      } catch {
+  function handleSelectAccount(pengajarId: string) {
+    setError(null)
+    startTransition(async () => {
+      try { await doLogin(pin, pengajarId) } catch {
         setError('Terjadi kesalahan koneksi. Coba lagi.')
       }
     })
@@ -204,7 +222,39 @@ function LoginForm() {
                 </div>
               )}
 
+              {/* Pilih akun jika PIN sama */}
+              {accounts && accounts.length > 1 && (
+                <div className="space-y-2 rounded-2xl bg-blue-50 border border-blue-200 p-3">
+                  <p className="text-sm font-medium text-blue-800 text-center">
+                    PIN ini dipakai beberapa akun. Pilih akun:
+                  </p>
+                  {accounts.map((acc) => (
+                    <Button
+                      key={acc.id}
+                      type="button"
+                      variant="outline"
+                      disabled={isPending}
+                      onClick={() => handleSelectAccount(acc.id)}
+                      className="w-full h-11 rounded-xl justify-between bg-white hover:bg-blue-100 border-blue-200"
+                    >
+                      <span className="font-medium text-slate-700">{acc.nama}</span>
+                      <span className="text-xs px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
+                        {acc.peran === 'ADMIN' ? 'Admin' : 'Pengajar'}
+                      </span>
+                    </Button>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => { setAccounts(null); setPin(''); inputRef.current?.focus() }}
+                    className="w-full text-xs text-slate-500 hover:text-slate-700 pt-1"
+                  >
+                    Batal, ganti PIN
+                  </button>
+                </div>
+              )}
+
               {/* Tombol masuk */}
+              {!accounts && (
               <Button
                 type="submit"
                 disabled={pin.length < 4 || isLocked || isPending}
@@ -218,6 +268,7 @@ function LoginForm() {
                   'Masuk'
                 )}
               </Button>
+              )}
             </form>
 
             {/* Panduan wali */}

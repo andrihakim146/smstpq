@@ -32,6 +32,14 @@ enum StatusAbsensi {
   SAKIT
 }
 
+/// Status keanggotaan santri di TPQ
+enum StatusSantri {
+  AKTIF   /// Masih belajar aktif
+  LULUS   /// Tamat / lulus dari TPQ
+  PINDAH  /// Pindah ke TPQ / lembaga lain
+  KELUAR  /// Keluar / berhenti (bukan lulus)
+}
+
 // ─── Model Utama ──────────────────────────────────────────────────────────────
 
 /// Akun pengajar (termasuk admin). PIN di-hash dengan bcrypt.
@@ -65,8 +73,14 @@ model Santri {
   targetPembelajaran String?
   deadlineTarget     DateTime? @db.Date
   noWaWali           String?
-  isActive           Boolean   @default(true)
-  createdAt          DateTime  @default(now())
+  isActive           Boolean       @default(true)
+  /// Status keanggotaan: aktif, lulus, pindah, atau keluar
+  status             StatusSantri  @default(AKTIF)
+  /// Tanggal efektif lulus / pindah / keluar
+  statusSejak        DateTime?     @db.Date
+  /// Keterangan tambahan (mis. pindah ke TPQ X)
+  statusCatatan      String?
+  createdAt          DateTime      @default(now())
 
   kelas             Kelas?             @relation(fields: [kelasId], references: [id])
   setoran           Setoran[]

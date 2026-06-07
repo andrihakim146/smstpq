@@ -200,6 +200,7 @@ export default function AdminKelasPage() {
               <p className="text-slate-400">Belum ada kelas. Tambahkan kelas pertama.</p>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -241,6 +242,7 @@ export default function AdminKelasPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

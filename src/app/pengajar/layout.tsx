@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { getSession } from '@/lib/session'
 import PengajarSidebar from '@/components/PengajarSidebar'
+import PanelShell from '@/components/PanelShell'
 import { Toaster } from '@/components/ui/sonner'
 
 export default async function PengajarLayout({
@@ -12,10 +13,14 @@ export default async function PengajarLayout({
   if (!session) redirect('/login?reason=unauthenticated')
 
   return (
-    <div className="min-h-screen bg-slate-50 flex">
-      <PengajarSidebar nama={session.nama} peran={session.peran} />
-      <main className="flex-1 min-w-0 p-4 lg:p-6">{children}</main>
-      <Toaster richColors position="top-right" />
-    </div>
+    <>
+      <PanelShell
+        panelTitle="Portal Pengajar"
+        sidebar={<PengajarSidebar nama={session.nama} peran={session.peran} />}
+      >
+        {children}
+      </PanelShell>
+      <Toaster richColors position="top-center" />
+    </>
   )
 }

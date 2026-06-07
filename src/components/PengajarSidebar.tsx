@@ -8,6 +8,7 @@ import {
   MessageSquare, LogOut, ShieldIcon,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { usePanelNav, PanelSidebarClose } from '@/components/PanelShell'
 
 const navItems = [
   { href: '/pengajar/dashboard', label: 'Dashboard',    icon: LayoutDashboard },
@@ -25,6 +26,7 @@ export default function PengajarSidebar({
 }) {
   const pathname = usePathname()
   const router   = useRouter()
+  const { closeNav } = usePanelNav()
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -32,7 +34,8 @@ export default function PengajarSidebar({
   }
 
   return (
-    <aside className="w-60 shrink-0 bg-white border-r border-slate-100 flex flex-col min-h-screen shadow-sm">
+    <aside className="relative w-60 max-w-[85vw] h-full lg:min-h-screen bg-white border-r border-slate-100 flex flex-col shadow-sm lg:shadow-none">
+      <PanelSidebarClose />
       {/* Brand */}
       <div className="p-5 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
@@ -68,6 +71,7 @@ export default function PengajarSidebar({
             <Link
               key={href}
               href={href}
+              onClick={closeNav}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-colors',
                 active
@@ -84,6 +88,7 @@ export default function PengajarSidebar({
         {peran === 'ADMIN' && (
           <Link
             href="/admin/dashboard"
+            onClick={closeNav}
             className="flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium text-slate-500 hover:bg-slate-100 mt-2 border-t border-slate-100 pt-3"
           >
             <ShieldIcon className="w-4 h-4 shrink-0" />

@@ -161,6 +161,7 @@ export default function AdminKitabPage() {
               <p className="text-slate-400">Belum ada kitab. Tambahkan referensi pertama.</p>
             </div>
           ) : (
+            <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -229,6 +230,7 @@ export default function AdminKitabPage() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

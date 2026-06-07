@@ -16,6 +16,7 @@ import {
   Database,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { usePanelNav, PanelSidebarClose } from '@/components/PanelShell'
 
 const navItems = [
   { href: '/admin/dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
@@ -36,6 +37,7 @@ interface Props {
 export default function AdminSidebar({ nama }: Props) {
   const pathname = usePathname()
   const router   = useRouter()
+  const { closeNav } = usePanelNav()
 
   async function handleLogout() {
     await fetch('/api/auth/logout', { method: 'POST' })
@@ -43,7 +45,8 @@ export default function AdminSidebar({ nama }: Props) {
   }
 
   return (
-    <aside className="w-64 shrink-0 bg-white border-r border-slate-100 flex flex-col min-h-screen shadow-sm">
+    <aside className="relative w-64 max-w-[85vw] h-full lg:min-h-screen bg-white border-r border-slate-100 flex flex-col shadow-sm lg:shadow-none">
+      <PanelSidebarClose />
       {/* Header */}
       <div className="p-6 border-b border-slate-100">
         <div className="flex items-center gap-3">
@@ -78,6 +81,7 @@ export default function AdminSidebar({ nama }: Props) {
             <Link
               key={href}
               href={href}
+              onClick={closeNav}
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-medium transition-colors',
                 active
