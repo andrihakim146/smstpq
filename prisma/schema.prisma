@@ -40,6 +40,11 @@ enum StatusSantri {
   KELUAR  /// Keluar / berhenti (bukan lulus)
 }
 
+enum JenisKelamin {
+  LAKI_LAKI
+  PEREMPUAN
+}
+
 // ─── Model Utama ──────────────────────────────────────────────────────────────
 
 /// Akun pengajar (termasuk admin). PIN di-hash dengan bcrypt.
@@ -70,6 +75,10 @@ model Santri {
   id                 String    @id @default(uuid()) @db.Uuid
   nis                String    @unique
   nama               String
+  jenisKelamin       JenisKelamin?
+  usia               Int?
+  namaWali           String?
+  alamat             String?       @db.Text
   kelasId            String?   @db.Uuid
   targetPembelajaran String?
   deadlineTarget     DateTime? @db.Date

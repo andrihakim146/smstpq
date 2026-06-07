@@ -23,12 +23,20 @@ import {
   STATUS_SANTRI_BADGE,
   type StatusSantri,
 } from '@/lib/santri-status'
+import {
+  JENIS_KELAMIN_LABEL,
+  type JenisKelamin,
+} from '@/lib/santri-fields'
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 interface SantriItem {
   id:                 string
   nis:                string
   nama:               string
+  jenisKelamin:       JenisKelamin | null
+  usia:               number | null
+  namaWali:           string | null
+  alamat:             string | null
   isActive:           boolean
   status:             StatusSantri
   statusSejak:        string | null
@@ -58,6 +66,10 @@ function SantriFormDialog({
   onSaved:   (s: SantriItem) => void
 }) {
   const [nama,    setNama]    = useState('')
+  const [jenisKelamin, setJenisKelamin] = useState<JenisKelamin | ''>('')
+  const [usia,    setUsia]    = useState('')
+  const [namaWali,setNamaWali]= useState('')
+  const [alamat,  setAlamat]  = useState('')
   const [kelasId, setKelasId] = useState('')
   const [target,  setTarget]  = useState('')
   const [deadline,setDeadline]= useState('')
@@ -67,12 +79,17 @@ function SantriFormDialog({
   useEffect(() => {
     if (initial) {
       setNama(initial.nama)
+      setJenisKelamin(initial.jenisKelamin ?? '')
+      setUsia(initial.usia != null ? String(initial.usia) : '')
+      setNamaWali(initial.namaWali ?? '')
+      setAlamat(initial.alamat ?? '')
       setKelasId(initial.kelas?.id ?? '')
       setTarget(initial.targetPembelajaran ?? '')
       setDeadline(initial.deadlineTarget ? initial.deadlineTarget.slice(0, 10) : '')
       setNoWa(initial.noWaWali ?? '')
     } else {
-      setNama(''); setKelasId(''); setTarget(''); setDeadline(''); setNoWa('')
+      setNama(''); setJenisKelamin(''); setUsia(''); setNamaWali(''); setAlamat('')
+      setKelasId(''); setTarget(''); setDeadline(''); setNoWa('')
     }
   }, [initial, open])
 
@@ -88,6 +105,10 @@ function SantriFormDialog({
         credentials: 'include',
         body: JSON.stringify({
           nama:               nama.trim(),
+          jenisKelamin:       jenisKelamin || null,
+          usia:               usia.trim() ? Number(usia) : null,
+          namaWali:           namaWali.trim() || null,
+          alamat:             alamat.trim()   || null,
           kelasId:            kelasId || null,
           targetPembelajaran: target.trim()  || null,
           deadlineTarget:     deadline || null,
@@ -104,7 +125,7 @@ function SantriFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose() }}>
-      <DialogContent className="rounded-3xl max-w-md">
+      <DialogContent className="rounded-3xl max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{initial ? 'Edit Santri' : 'Tambah Santri'}</DialogTitle>
         </DialogHeader>
@@ -120,6 +141,49 @@ function SantriFormDialog({
           <div className="space-y-1">
             <label className="text-sm font-semibold text-slate-700">Nama Lengkap <span className="text-rose-500">*</span></label>
             <Input placeholder="Nama santri" value={nama} onChange={(e) => setNama(e.target.value)} />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-slate-700">Jenis Kelamin</label>
+              <select
+                value={jenisKelamin}
+                onChange={(e) => setJenisKelamin(e.target.value as JenisKelamin | '')}
+                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400"
+              >
+                <option value="">— Pilih —</option>
+                {(Object.keys(JENIS_KELAMIN_LABEL) as JenisKelamin[]).map((k) => (
+                  <option key={k} value={k}>{JENIS_KELAMIN_LABEL[k]}</option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-semibold text-slate-700">Usia (tahun)</label>
+              <Input
+                type="number"
+                min={1}
+                max={120}
+                placeholder="Misal: 10"
+                value={usia}
+                onChange={(e) => setUsia(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-semibold text-slate-700">Nama Wali</label>
+            <Input placeholder="Nama orang tua / wali" value={namaWali} onChange={(e) => setNamaWali(e.target.value)} />
+          </div>
+
+          <div className="space-y-1">
+            <label className="text-sm font-semibold text-slate-700">Alamat</label>
+            <textarea
+              placeholder="Alamat tempat tinggal santri"
+              value={alamat}
+              onChange={(e) => setAlamat(e.target.value)}
+              rows={2}
+              className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400 resize-none"
+            />
           </div>
 
           <div className="space-y-1">
@@ -467,6 +531,14 @@ export default function AdminSantriPage() {
                     <TableCell>
                       <div>
                         <p className="font-semibold text-slate-700 text-sm">{s.nama}</p>
+                        {(s.jenisKelamin || s.usia != null) && (
+                          <p className="text-xs text-slate-400">
+                            {[
+                              s.jenisKelamin ? JENIS_KELAMIN_LABEL[s.jenisKelamin] : null,
+                              s.usia != null ? `${s.usia} th` : null,
+                            ].filter(Boolean).join(' · ')}
+                          </p>
+                        )}
                         {s.targetPembelajaran && (
                           <p className="text-xs text-slate-400 truncate max-w-[160px]">{s.targetPembelajaran}</p>
                         )}

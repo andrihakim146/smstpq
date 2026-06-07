@@ -23,17 +23,21 @@ const ID = {
 async function main() {
   console.log('🌱 Memulai seeding database SMSTPQ...\n')
 
-  // ---------- 1. HASH PIN ----------
-  const pinHash = await bcrypt.hash('123456', 10)
+  // ---------- 1. HASH PIN (unik per akun) ----------
+  const [pinAdmin, pinPengajar1, pinPengajar2] = await Promise.all([
+    bcrypt.hash('123456', 10),
+    bcrypt.hash('234567', 10),
+    bcrypt.hash('345678', 10),
+  ])
 
   // ---------- 2. PENGAJAR ----------
   const admin = await prisma.pengajar.upsert({
     where: { id: ID.admin },
-    update: {},
+    update: { pinHash: pinAdmin },
     create: {
       id:       ID.admin,
       nama:     'Ahmad Fauzi',
-      pinHash,
+      pinHash:  pinAdmin,
       peran:    'ADMIN',
       isActive: true,
     },
@@ -41,11 +45,11 @@ async function main() {
 
   const pengajar1 = await prisma.pengajar.upsert({
     where: { id: ID.pengajar1 },
-    update: {},
+    update: { pinHash: pinPengajar1 },
     create: {
       id:       ID.pengajar1,
       nama:     'Budi Santoso',
-      pinHash,
+      pinHash:  pinPengajar1,
       peran:    'PENGAJAR',
       isActive: true,
     },
@@ -53,11 +57,11 @@ async function main() {
 
   const pengajar2 = await prisma.pengajar.upsert({
     where: { id: ID.pengajar2 },
-    update: {},
+    update: { pinHash: pinPengajar2 },
     create: {
       id:       ID.pengajar2,
       nama:     'Siti Rahayu',
-      pinHash,
+      pinHash:  pinPengajar2,
       peran:    'PENGAJAR',
       isActive: true,
     },
@@ -114,11 +118,11 @@ async function main() {
   const tahun = new Date().getFullYear()
 
   const dataSantri = [
-    { nama: 'Muhammad Rizki', kelasId: kelasA.id, urutan: 1 },
-    { nama: 'Abdullah Hafidz', kelasId: kelasA.id, urutan: 2 },
-    { nama: 'Fatimah Zahra',   kelasId: kelasA.id, urutan: 3 },
-    { nama: 'Aisyah Putri',    kelasId: kelasB.id, urutan: 4 },
-    { nama: 'Umar Farouq',     kelasId: kelasB.id, urutan: 5 },
+    { nama: 'Muhammad Rizki', kelasId: kelasA.id, urutan: 1, jenisKelamin: 'LAKI_LAKI' as const, usia: 10, namaWali: 'Bapak Rizki', alamat: 'Jl. Melati No. 5, Jakarta' },
+    { nama: 'Abdullah Hafidz', kelasId: kelasA.id, urutan: 2, jenisKelamin: 'LAKI_LAKI' as const, usia: 9, namaWali: 'Ibu Siti', alamat: 'Jl. Mawar No. 12, Jakarta' },
+    { nama: 'Fatimah Zahra',   kelasId: kelasA.id, urutan: 3, jenisKelamin: 'PEREMPUAN' as const, usia: 11, namaWali: 'Bapak Ahmad', alamat: 'Jl. Kenanga No. 3, Jakarta' },
+    { nama: 'Aisyah Putri',    kelasId: kelasB.id, urutan: 4, jenisKelamin: 'PEREMPUAN' as const, usia: 8, namaWali: 'Ibu Putri', alamat: 'Jl. Anggrek No. 8, Jakarta' },
+    { nama: 'Umar Farouq',     kelasId: kelasB.id, urutan: 5, jenisKelamin: 'LAKI_LAKI' as const, usia: 12, namaWali: 'Bapak Farouq', alamat: 'Jl. Dahlia No. 1, Jakarta' },
   ]
 
   console.log('\n✅ Santri dibuat:')
@@ -128,12 +132,21 @@ async function main() {
 
     await prisma.santri.upsert({
       where:  { nis },
-      update: {},
+      update: {
+        jenisKelamin: s.jenisKelamin,
+        usia:         s.usia,
+        namaWali:     s.namaWali,
+        alamat:       s.alamat,
+      },
       create: {
         nis,
-        nama:     s.nama,
-        kelasId:  s.kelasId,
-        isActive: true,
+        nama:         s.nama,
+        kelasId:      s.kelasId,
+        jenisKelamin: s.jenisKelamin,
+        usia:         s.usia,
+        namaWali:     s.namaWali,
+        alamat:       s.alamat,
+        isActive:     true,
       },
     })
     console.log(`   - ${s.nama.padEnd(18)} | NIS: ${nis} | ${namaKelas}`)
@@ -141,10 +154,9 @@ async function main() {
 
   console.log('\n🎉 Seeding selesai!')
   console.log('\n📋 Ringkasan akun:')
-  console.log('   PIN untuk semua akun : 123456')
-  console.log(`   Admin    : ${admin.nama}     (ID: ${admin.id})`)
-  console.log(`   Pengajar : ${pengajar1.nama} → ${kelasA.nama}`)
-  console.log(`   Pengajar : ${pengajar2.nama}  → ${kelasB.nama}`)
+  console.log('   Admin PIN    : 123456  →', admin.nama)
+  console.log('   Pengajar PIN : 234567  →', pengajar1.nama, `(${kelasA.nama})`)
+  console.log('   Pengajar PIN : 345678  →', pengajar2.nama, `(${kelasB.nama})`)
 }
 
 main()

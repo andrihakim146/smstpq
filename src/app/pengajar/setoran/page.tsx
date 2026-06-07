@@ -52,12 +52,13 @@ function SurahCombobox({
   const [open,  setOpen]    = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
-  const filtered = query.trim()
+  const q = query.trim().toLowerCase()
+  const filtered = q
     ? SURAH_LIST.filter((s) =>
-        s.nama.toLowerCase().includes(query.toLowerCase()) ||
-        String(s.no).startsWith(query),
-      ).slice(0, 20)
-    : SURAH_LIST.slice(0, 20)
+        s.nama.toLowerCase().includes(q) ||
+        String(s.no).startsWith(query.trim()),
+      )
+    : SURAH_LIST
 
   useEffect(() => { setQuery(value) }, [value])
 
@@ -74,24 +75,33 @@ function SurahCombobox({
   return (
     <div ref={ref} className="relative">
       <Input
-        placeholder="Pilih surah…"
+        placeholder="Ketuk untuk pilih surah…"
         value={query}
         onChange={(e) => { setQuery(e.target.value); onChange(''); setOpen(true) }}
         onFocus={() => setOpen(true)}
       />
-      {open && filtered.length > 0 && (
-        <ul className="absolute z-50 mt-1 w-full bg-white rounded-xl shadow-lg border border-slate-100 max-h-52 overflow-auto">
-          {filtered.map((s) => (
-            <li
-              key={s.no}
-              onMouseDown={() => select(s.nama)}
-              className="flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-blue-50 text-sm"
-            >
-              <span className="w-7 text-center text-xs text-slate-400 font-mono">{s.no}</span>
-              <span className="font-medium text-slate-700">{s.nama}</span>
-              <span className="ml-auto text-xs text-slate-400">{s.maxAyat} ayat</span>
+      {open && (
+        <ul className="absolute z-50 mt-1 w-full bg-white rounded-xl shadow-lg border border-slate-100 max-h-64 overflow-auto">
+          {filtered.length === 0 ? (
+            <li className="px-4 py-3 text-sm text-slate-400 text-center">Surah tidak ditemukan.</li>
+          ) : (
+            filtered.map((s) => (
+              <li
+                key={s.no}
+                onMouseDown={() => select(s.nama)}
+                className="flex items-center gap-2 px-4 py-2 cursor-pointer hover:bg-blue-50 text-sm border-b border-slate-50 last:border-0"
+              >
+                <span className="w-7 text-center text-xs text-slate-400 font-mono shrink-0">{s.no}</span>
+                <span className="font-medium text-slate-700 truncate">{s.nama}</span>
+                <span className="ml-auto text-xs text-slate-400 shrink-0">{s.maxAyat} ayat</span>
+              </li>
+            ))
+          )}
+          {!q && filtered.length > 0 && (
+            <li className="px-4 py-2 text-[10px] text-slate-400 text-center border-t border-slate-100 bg-slate-50 sticky bottom-0">
+              Ketik nama atau nomor surah untuk memfilter
             </li>
-          ))}
+          )}
         </ul>
       )}
     </div>

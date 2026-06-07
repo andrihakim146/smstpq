@@ -62,11 +62,9 @@ export async function POST(request: NextRequest) {
 
   // Parse body
   let pin: string
-  let pengajarId: string | undefined
   try {
     const body = await request.json()
     pin = String(body?.pin ?? '').trim()
-    pengajarId = typeof body?.pengajarId === 'string' ? body.pengajarId : undefined
   } catch {
     return NextResponse.json({ error: 'Body tidak valid.' }, { status: 400 })
   }
@@ -99,46 +97,22 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  // Cari semua akun dengan PIN cocok (bisa lebih dari satu)
-  const matches: typeof pengajarList = []
+  // Cari akun dengan PIN cocok (setiap PIN unik)
+  let matchedPengajar: (typeof pengajarList)[number] | null = null
   for (const p of pengajarList) {
-    if (await bcrypt.compare(pin, p.pinHash)) matches.push(p)
+    if (await bcrypt.compare(pin, p.pinHash)) {
+      matchedPengajar = p
+      break
+    }
   }
 
-  // Urutkan: Admin dulu, lalu abjad nama
-  matches.sort((a, b) => {
-    if (a.peran === 'ADMIN' && b.peran !== 'ADMIN') return -1
-    if (b.peran === 'ADMIN' && a.peran !== 'ADMIN') return 1
-    return a.nama.localeCompare(b.nama, 'id')
-  })
-
-  if (matches.length === 0) {
+  if (!matchedPengajar) {
     logLoginFailed({ reason: 'PIN tidak cocok', ip })
     await logAktivitas({ aksi: 'LOGIN_GAGAL', detail: `PIN salah dari IP ${ip}`, ip })
     return NextResponse.json(
       { error: 'PIN tidak ditemukan. Periksa kembali PIN Anda.' },
       { status: 401 },
     )
-  }
-
-  // Beberapa akun memakai PIN sama — minta pengguna pilih akun
-  if (matches.length > 1 && !pengajarId) {
-    return NextResponse.json({
-      needSelection: true,
-      accounts: matches.map((p) => ({
-        id:    p.id,
-        nama:  p.nama,
-        peran: p.peran,
-      })),
-    })
-  }
-
-  const matchedPengajar = pengajarId
-    ? matches.find((p) => p.id === pengajarId) ?? null
-    : matches[0]
-
-  if (!matchedPengajar) {
-    return NextResponse.json({ error: 'Akun tidak valid.' }, { status: 401 })
   }
 
   // Cek lockout di memori

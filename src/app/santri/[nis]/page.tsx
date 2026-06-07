@@ -2,7 +2,8 @@ export const dynamic = 'force-dynamic'
 
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeftIcon, GraduationCapIcon, TargetIcon, CalendarIcon, PhoneIcon } from 'lucide-react'
+import { ArrowLeftIcon, GraduationCapIcon, TargetIcon, CalendarIcon, PhoneIcon, UserIcon, MapPinIcon } from 'lucide-react'
+import { JENIS_KELAMIN_LABEL, type JenisKelamin } from '@/lib/santri-fields'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -44,6 +45,10 @@ async function getSantriData(nis: string) {
       id:                 true,
       nis:                true,
       nama:               true,
+      jenisKelamin:       true,
+      usia:               true,
+      namaWali:           true,
+      alamat:             true,
       isActive:           true,
       createdAt:          true,
       targetPembelajaran: true,
@@ -222,6 +227,34 @@ export default async function SantriDetailPage({
                 value={santri.kelas?.nama ?? '—'}
               />
 
+              {(santri.jenisKelamin || santri.usia != null) && (
+                <InfoRow
+                  icon={<UserIcon className="w-4 h-4 text-indigo-500" />}
+                  label="Profil"
+                  value={[
+                    santri.jenisKelamin ? JENIS_KELAMIN_LABEL[santri.jenisKelamin as JenisKelamin] : null,
+                    santri.usia != null ? `${santri.usia} tahun` : null,
+                  ].filter(Boolean).join(' · ')}
+                />
+              )}
+
+              {santri.namaWali && (
+                <InfoRow
+                  icon={<UserIcon className="w-4 h-4 text-sky-500" />}
+                  label="Wali"
+                  value={santri.namaWali}
+                />
+              )}
+
+              {santri.alamat && (
+                <InfoRow
+                  icon={<MapPinIcon className="w-4 h-4 text-rose-500" />}
+                  label="Alamat"
+                  value={santri.alamat}
+                  multiline
+                />
+              )}
+
               {/* Target pembelajaran */}
               {santri.targetPembelajaran && (
                 <InfoRow
@@ -301,17 +334,20 @@ export default async function SantriDetailPage({
 
 // ── Sub-komponen kecil ────────────────────────────────────────────────────────
 function InfoRow({
-  icon, label, value,
+  icon, label, value, multiline,
 }: {
   icon: React.ReactNode
   label: string
   value: string
+  multiline?: boolean
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <div className="shrink-0">{icon}</div>
-      <span className="text-xs text-slate-400 w-16 shrink-0">{label}</span>
-      <span className="text-sm font-medium text-slate-700 flex-1 min-w-0 truncate">{value}</span>
+    <div className="flex items-start gap-3">
+      <div className="shrink-0 mt-0.5">{icon}</div>
+      <span className="text-xs text-slate-400 w-16 shrink-0 pt-0.5">{label}</span>
+      <span className={`text-sm font-medium text-slate-700 flex-1 min-w-0 ${multiline ? 'whitespace-pre-wrap' : 'truncate'}`}>
+        {value}
+      </span>
     </div>
   )
 }

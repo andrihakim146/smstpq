@@ -1,24 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin } from '@/lib/auth-server'
-import { optionalUuid, optionalDate } from '@/lib/zod-helpers'
-
-const statusEnum = z.enum(['AKTIF', 'LULUS', 'PINDAH', 'KELUAR'])
-
-const santriSchema = z.object({
-  nama:               z.string().min(1).max(200).trim(),
-  kelasId:            optionalUuid.optional(),
-  targetPembelajaran: z.preprocess(
-    (v) => (v === '' ? null : v),
-    z.string().max(500).nullable().optional(),
-  ),
-  deadlineTarget:     optionalDate.optional(),
-  noWaWali:           z.preprocess(
-    (v) => (v === '' ? null : v),
-    z.string().max(20).nullable().optional(),
-  ),
-})
+import { santriAdminSelect } from '@/lib/santri-fields'
+import { santriBodySchema, santriProfileData } from '@/lib/santri-schema'
 
 /** Generate NIS format YYYYxxxx — cari NIS terakhir tahun ini, increment. */
 async function generateNIS(): Promise<string> {
@@ -46,7 +30,7 @@ export async function GET(request: NextRequest) {
   const sp       = request.nextUrl.searchParams
   const q        = sp.get('q')?.trim() ?? ''
   const kelasId  = sp.get('kelasId') ?? undefined
-  const status   = sp.get('status')  // AKTIF | LULUS | PINDAH | KELUAR | nonaktif
+  const status   = sp.get('status')
   const page     = Math.max(1, Number(sp.get('page') ?? '1'))
   const pageSize = 20
 
@@ -55,6 +39,7 @@ export async function GET(request: NextRequest) {
       OR: [
         { nama: { contains: q, mode: 'insensitive' as const } },
         { nis:  { contains: q } },
+        { namaWali: { contains: q, mode: 'insensitive' as const } },
       ],
     } : {}),
     ...(kelasId ? { kelasId } : {}),
@@ -72,21 +57,7 @@ export async function GET(request: NextRequest) {
       orderBy: [{ status: 'asc' }, { nama: 'asc' }],
       skip:  (page - 1) * pageSize,
       take:  pageSize,
-      select: {
-        id:                 true,
-        nis:                true,
-        nama:               true,
-        isActive:           true,
-        status:             true,
-        statusSejak:        true,
-        statusCatatan:      true,
-        targetPembelajaran: true,
-        deadlineTarget:     true,
-        noWaWali:           true,
-        createdAt:          true,
-        kelas:              { select: { id: true, nama: true } },
-        _count:             { select: { setoran: true } },
-      },
+      select: santriAdminSelect,
     }),
   ])
 
@@ -101,33 +72,28 @@ export async function POST(request: NextRequest) {
   let body: unknown
   try { body = await request.json() } catch { return NextResponse.json({ error: 'Body tidak valid.' }, { status: 400 }) }
 
-  const parsed = santriSchema.safeParse(body)
+  const parsed = santriBodySchema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 422 })
 
   const nis = await generateNIS()
+  const d   = parsed.data
 
   const santri = await prisma.santri.create({
     data: {
       nis,
-      nama:               parsed.data.nama,
-      kelasId:            parsed.data.kelasId ?? null,
-      targetPembelajaran: parsed.data.targetPembelajaran ?? null,
-      deadlineTarget:     parsed.data.deadlineTarget ? new Date(parsed.data.deadlineTarget) : null,
-      noWaWali:           parsed.data.noWaWali ?? null,
+      nama:               d.nama,
+      kelasId:            d.kelasId ?? null,
+      jenisKelamin:       d.jenisKelamin ?? null,
+      usia:               d.usia ?? null,
+      namaWali:           d.namaWali ?? null,
+      alamat:             d.alamat ?? null,
+      targetPembelajaran: d.targetPembelajaran ?? null,
+      deadlineTarget:     d.deadlineTarget ? new Date(d.deadlineTarget) : null,
+      noWaWali:           d.noWaWali ?? null,
       status:             'AKTIF',
       isActive:           true,
     },
-    select: {
-      id:            true,
-      nis:           true,
-      nama:          true,
-      isActive:      true,
-      status:        true,
-      statusSejak:   true,
-      statusCatatan: true,
-      kelas:         { select: { id: true, nama: true } },
-      _count:        { select: { setoran: true } },
-    },
+    select: santriAdminSelect,
   })
 
   return NextResponse.json(santri, { status: 201 })

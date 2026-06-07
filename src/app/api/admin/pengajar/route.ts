@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs'
 import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin, getSessionFromHeaders } from '@/lib/auth-server'
+import { findPengajarWithPin, PIN_TAKEN_MESSAGE } from '@/lib/pin-uniqueness'
 
 // ── GET /api/admin/pengajar ───────────────────────────────────────────────────
 export async function GET(request: NextRequest) {
@@ -60,6 +61,11 @@ export async function POST(request: NextRequest) {
   }
 
   const { nama, pin, peran, noWa } = parsed.data
+
+  if (await findPengajarWithPin(pin)) {
+    return NextResponse.json({ error: PIN_TAKEN_MESSAGE }, { status: 409 })
+  }
+
   const pinHash = await bcrypt.hash(pin, 10)
 
   const pengajar = await prisma.pengajar.create({

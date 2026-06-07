@@ -56,15 +56,22 @@ async function fetchSantri(sp: URLSearchParams) {
     orderBy: [{ kelas: { nama: 'asc' } }, { nama: 'asc' }],
     select: {
       nis: true, nama: true, isActive: true,
+      jenisKelamin: true, usia: true, namaWali: true, alamat: true,
       targetPembelajaran: true, deadlineTarget: true,
       noWaWali: true, createdAt: true,
       kelas: { select: { nama: true } },
     },
   })
 
-  const headers = ['NIS', 'Nama', 'Kelas', 'Target Pembelajaran', 'Deadline', 'No WA Wali', 'Status', 'Bergabung']
-  const rows    = data.map((s) => [
-    s.nis, s.nama, s.kelas?.nama ?? '', s.targetPembelajaran ?? '',
+  const headers = [
+    'NIS', 'Nama', 'Jenis Kelamin', 'Usia', 'Nama Wali', 'Alamat', 'Kelas',
+    'Target Pembelajaran', 'Deadline', 'No WA Wali', 'Status', 'Bergabung',
+  ]
+  const rows = data.map((s) => [
+    s.nis, s.nama,
+    s.jenisKelamin === 'LAKI_LAKI' ? 'Laki-laki' : s.jenisKelamin === 'PEREMPUAN' ? 'Perempuan' : '',
+    s.usia ?? '', s.namaWali ?? '', s.alamat ?? '',
+    s.kelas?.nama ?? '', s.targetPembelajaran ?? '',
     fmtDateOnly(s.deadlineTarget), s.noWaWali ?? '',
     s.isActive ? 'Aktif' : 'Nonaktif', fmtDatetime(s.createdAt),
   ])
