@@ -97,6 +97,7 @@ export async function POST(request: NextRequest) {
               nama:      p.nama      as string,
               pinHash:   p.pinHash   as string,
               peran:     p.peran     as 'ADMIN' | 'PENGAJAR',
+              noWa:      (p.noWa as string | null | undefined) ?? null,
               isActive:  p.isActive  as boolean ?? true,
               createdAt: toDate(p.createdAt) ?? new Date(),
             })),
@@ -109,12 +110,13 @@ export async function POST(request: NextRequest) {
               where:  { id: p.id as string },
               create: {
                 id: p.id as string, nama: p.nama as string, pinHash: p.pinHash as string,
-                peran: p.peran as 'ADMIN' | 'PENGAJAR', isActive: p.isActive as boolean ?? true,
-                createdAt: toDate(p.createdAt) ?? new Date(),
+                peran: p.peran as 'ADMIN' | 'PENGAJAR', noWa: (p.noWa as string | null | undefined) ?? null,
+                isActive: p.isActive as boolean ?? true, createdAt: toDate(p.createdAt) ?? new Date(),
               },
               update: {
                 nama: p.nama as string, pinHash: p.pinHash as string,
-                peran: p.peran as 'ADMIN' | 'PENGAJAR', isActive: p.isActive as boolean ?? true,
+                peran: p.peran as 'ADMIN' | 'PENGAJAR', noWa: (p.noWa as string | null | undefined) ?? null,
+                isActive: p.isActive as boolean ?? true,
               },
             })
             stats.pengajar++

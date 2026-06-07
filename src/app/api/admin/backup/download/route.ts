@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     prisma.pengajar.findMany({
       select: {
         id: true, nama: true, pinHash: true,
-        peran: true, isActive: true, createdAt: true,
+        peran: true, noWa: true, isActive: true, createdAt: true,
       },
     }),
     prisma.kelas.findMany(),

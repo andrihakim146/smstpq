@@ -16,7 +16,7 @@ import {
 } from '@/components/ui/table'
 import {
   GraduationCap, Plus, Pencil, Loader2, Search,
-  UserCheck, ChevronLeft, ChevronRight, ArrowRightLeft,
+  UserCheck, ChevronLeft, ChevronRight, ArrowRightLeft, Trash2,
 } from 'lucide-react'
 import {
   STATUS_SANTRI_LABEL,
@@ -303,6 +303,8 @@ export default function AdminSantriPage() {
   const [editItem,   setEditItem]   = useState<SantriItem | null>(null)
   const [statusItem, setStatusItem] = useState<SantriItem | null>(null)
   const [statusOpen, setStatusOpen] = useState(false)
+  const [deleteItem, setDeleteItem] = useState<SantriItem | null>(null)
+  const [deleting,   setDeleting]   = useState(false)
 
   // Filters
   const [q,         setQ]         = useState('')
@@ -350,6 +352,23 @@ export default function AdminSantriPage() {
 
   function handleStatusSaved(updated: SantriItem) {
     setSantriList((prev) => prev.map((x) => x.id === updated.id ? { ...x, ...updated } : x))
+  }
+
+  async function handleDelete() {
+    if (!deleteItem) return
+    setDeleting(true)
+    try {
+      const res = await fetch(`/api/admin/santri/${deleteItem.id}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error ?? 'Gagal menghapus.'); return }
+      toast.success(`Santri ${deleteItem.nama} dihapus permanen.`)
+      setSantriList((prev) => prev.filter((x) => x.id !== deleteItem.id))
+      setTotal((t) => Math.max(0, t - 1))
+      setDeleteItem(null)
+    } finally { setDeleting(false) }
   }
 
   function handleSaved(updated: SantriItem) {
@@ -494,6 +513,16 @@ export default function AdminSantriPage() {
                             : <><UserCheck className="w-3.5 h-3.5 mr-1" />Status</>
                           }
                         </Button>
+                        {s.status !== 'AKTIF' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setDeleteItem(s)}
+                            className="rounded-xl h-8 px-3 text-slate-500 hover:text-red-600 hover:bg-red-50"
+                          >
+                            <Trash2 className="w-3.5 h-3.5 mr-1" /> Hapus
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -538,6 +567,28 @@ export default function AdminSantriPage() {
         onClose={() => setStatusOpen(false)}
         onSaved={handleStatusSaved}
       />
+
+      <Dialog open={!!deleteItem} onOpenChange={(o) => { if (!o) setDeleteItem(null) }}>
+        <DialogContent className="rounded-3xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Hapus Santri Permanen</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-500 py-2">
+            Hapus <span className="font-semibold text-slate-700">{deleteItem?.nama}</span> (NIS {deleteItem?.nis})?
+            Semua data setoran, catatan, dan absensi ikut dihapus. Tindakan ini tidak dapat dibatalkan.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDeleteItem(null)} className="rounded-2xl">Batal</Button>
+            <Button
+              onClick={handleDelete}
+              disabled={deleting}
+              className="rounded-2xl bg-red-500 hover:bg-red-600 text-white"
+            >
+              {deleting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Ya, Hapus'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <SantriFormDialog
         open={formOpen}

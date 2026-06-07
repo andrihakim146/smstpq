@@ -14,6 +14,7 @@ export async function GET(request: NextRequest) {
       id:        true,
       nama:      true,
       peran:     true,
+      noWa:      true,
       isActive:  true,
       createdAt: true,
       _count: {
@@ -31,6 +32,10 @@ const createSchema = z.object({
   nama:  z.string().min(2, 'Nama minimal 2 karakter.').max(100),
   pin:   z.string().min(4, 'PIN minimal 4 digit.').max(6).regex(/^\d+$/, 'PIN harus angka.'),
   peran: z.enum(['ADMIN', 'PENGAJAR']),
+  noWa:  z.preprocess(
+    (v) => (v === '' ? null : v),
+    z.string().max(20).nullable().optional(),
+  ),
 })
 
 export async function POST(request: NextRequest) {
@@ -54,12 +59,12 @@ export async function POST(request: NextRequest) {
     )
   }
 
-  const { nama, pin, peran } = parsed.data
+  const { nama, pin, peran, noWa } = parsed.data
   const pinHash = await bcrypt.hash(pin, 10)
 
   const pengajar = await prisma.pengajar.create({
-    data:   { nama, pinHash, peran, isActive: true },
-    select: { id: true, nama: true, peran: true, isActive: true, createdAt: true },
+    data:   { nama, pinHash, peran, noWa: noWa ?? null, isActive: true },
+    select: { id: true, nama: true, peran: true, noWa: true, isActive: true, createdAt: true },
   })
 
   await prisma.logAktivitas.create({

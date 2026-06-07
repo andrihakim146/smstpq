@@ -48,6 +48,7 @@ model Pengajar {
   nama      String
   pinHash   String
   peran     Role     @default(PENGAJAR)
+  noWa      String?
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useTransition } from 'react'
 import { toast } from 'sonner'
-import { PlusIcon, KeyRoundIcon, PowerIcon, ShieldIcon, UserIcon, Loader2Icon } from 'lucide-react'
+import { PlusIcon, KeyRoundIcon, PowerIcon, ShieldIcon, UserIcon, Loader2Icon, PencilIcon, Trash2Icon, PhoneIcon } from 'lucide-react'
 
 import { Button }    from '@/components/ui/button'
 import { Input }     from '@/components/ui/input'
@@ -25,9 +25,18 @@ interface Pengajar {
   id:        string
   nama:      string
   peran:     'ADMIN' | 'PENGAJAR'
+  noWa:      string | null
   isActive:  boolean
   createdAt: string
   _count:    { setoran: number; catatan: number }
+}
+
+function waHref(no: string | null): string | null {
+  if (!no) return null
+  const digits = no.replace(/\D/g, '')
+  if (!digits) return null
+  const phone = digits.startsWith('62') ? digits : digits.startsWith('0') ? `62${digits.slice(1)}` : `62${digits}`
+  return `https://wa.me/${phone}`
 }
 
 // ── Fetch helpers ────────────────────────────────────────────────────────────
@@ -58,7 +67,14 @@ export default function ManajemenPengajarPage() {
   const [openTambah, setOpenTambah]   = useState(false)
   const [formNama, setFormNama]       = useState('')
   const [formPin, setFormPin]         = useState('')
+  const [formNoWa, setFormNoWa]       = useState('')
   const [formPeran, setFormPeran]     = useState<'PENGAJAR' | 'ADMIN'>('PENGAJAR')
+
+  // Dialog edit profil
+  const [editTarget, setEditTarget]   = useState<Pengajar | null>(null)
+  const [editNama, setEditNama]       = useState('')
+  const [editNoWa, setEditNoWa]       = useState('')
+  const [editPeran, setEditPeran]     = useState<'PENGAJAR' | 'ADMIN'>('PENGAJAR')
 
   // Dialog reset PIN
   const [resetTarget, setResetTarget] = useState<Pengajar | null>(null)
@@ -66,6 +82,7 @@ export default function ManajemenPengajarPage() {
 
   // Dialog konfirmasi toggle aktif
   const [toggleTarget, setToggleTarget] = useState<Pengajar | null>(null)
+  const [deleteTarget, setDeleteTarget] = useState<Pengajar | null>(null)
 
   // Muat data awal
   useEffect(() => {
@@ -90,11 +107,13 @@ export default function ManajemenPengajarPage() {
           nama:  formNama.trim(),
           pin:   formPin,
           peran: formPeran,
+          noWa:  formNoWa.trim() || null,
         })
         toast.success(`Pengajar "${formNama.trim()}" berhasil ditambahkan.`)
         setOpenTambah(false)
         setFormNama('')
         setFormPin('')
+        setFormNoWa('')
         setFormPeran('PENGAJAR')
         reload()
       } catch (err) {
@@ -117,6 +136,53 @@ export default function ManajemenPengajarPage() {
         setNewPin('')
       } catch (err) {
         toast.error(err instanceof Error ? err.message : 'Gagal reset PIN.')
+      }
+    })
+  }
+
+  // ── Edit profil ───────────────────────────────────────────────────────────
+  function openEdit(p: Pengajar) {
+    setEditTarget(p)
+    setEditNama(p.nama)
+    setEditNoWa(p.noWa ?? '')
+    setEditPeran(p.peran)
+  }
+
+  function handleEditProfil() {
+    if (!editTarget || !editNama.trim()) return
+    startTx(async () => {
+      try {
+        await apiCall(`/api/admin/pengajar/${editTarget.id}`, 'PATCH', {
+          aksi:  'update-profil',
+          nama:  editNama.trim(),
+          noWa:  editNoWa.trim() || null,
+          peran: editPeran,
+        })
+        toast.success('Profil pengajar diperbarui.')
+        setEditTarget(null)
+        reload()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Gagal menyimpan.')
+      }
+    })
+  }
+
+  // ── Hapus pengajar ────────────────────────────────────────────────────────
+  function handleDelete() {
+    if (!deleteTarget) return
+    startTx(async () => {
+      try {
+        const res = await fetch(`/api/admin/pengajar/${deleteTarget.id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? 'Gagal menghapus.')
+        toast.success(`Pengajar ${deleteTarget.nama} dihapus.`)
+        setDeleteTarget(null)
+        reload()
+      } catch (err) {
+        toast.error(err instanceof Error ? err.message : 'Gagal menghapus.')
       }
     })
   }
@@ -195,6 +261,16 @@ export default function ManajemenPengajarPage() {
               </div>
 
               <div className="space-y-1.5">
+                <label className="text-sm font-medium text-slate-700">No. WhatsApp</label>
+                <Input
+                  placeholder="08123456789"
+                  value={formNoWa}
+                  onChange={(e) => setFormNoWa(e.target.value)}
+                  className="rounded-xl"
+                />
+              </div>
+
+              <div className="space-y-1.5">
                 <label className="text-sm font-medium text-slate-700">Peran</label>
                 <Select value={formPeran} onValueChange={(v: 'PENGAJAR' | 'ADMIN' | null) => v && setFormPeran(v)}>
                   <SelectTrigger className="w-full rounded-xl">
@@ -242,6 +318,7 @@ export default function ManajemenPengajarPage() {
               <TableHeader>
                 <TableRow className="border-slate-100">
                   <TableHead className="pl-6">Nama</TableHead>
+                  <TableHead>WhatsApp</TableHead>
                   <TableHead>Peran</TableHead>
                   <TableHead className="text-center">Setoran</TableHead>
                   <TableHead>Status</TableHead>
@@ -259,6 +336,23 @@ export default function ManajemenPengajarPage() {
                         </div>
                         <span className="font-medium text-slate-800">{p.nama}</span>
                       </div>
+                    </TableCell>
+
+                    {/* WhatsApp */}
+                    <TableCell>
+                      {p.noWa ? (
+                        <a
+                          href={waHref(p.noWa) ?? '#'}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-emerald-600 hover:underline"
+                        >
+                          <PhoneIcon className="w-3 h-3" />
+                          {p.noWa}
+                        </a>
+                      ) : (
+                        <span className="text-xs text-slate-400 italic">—</span>
+                      )}
                     </TableCell>
 
                     {/* Peran */}
@@ -294,23 +388,29 @@ export default function ManajemenPengajarPage() {
 
                     {/* Aksi */}
                     <TableCell className="text-right pr-6">
-                      <div className="flex items-center justify-end gap-2">
-                        {/* Reset PIN */}
+                      <div className="flex items-center justify-end gap-1 flex-wrap">
                         <Button
                           variant="outline"
                           size="sm"
-                          className="rounded-xl text-xs gap-1.5 border-slate-200 hover:border-blue-300 hover:text-blue-600"
+                          className="rounded-xl text-xs gap-1 border-slate-200 hover:border-blue-300 hover:text-blue-600"
+                          onClick={() => openEdit(p)}
+                        >
+                          <PencilIcon className="w-3.5 h-3.5" />
+                          Edit
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="rounded-xl text-xs gap-1 border-slate-200 hover:border-blue-300 hover:text-blue-600"
                           onClick={() => { setResetTarget(p); setNewPin('') }}
                         >
                           <KeyRoundIcon className="w-3.5 h-3.5" />
-                          Reset PIN
+                          PIN
                         </Button>
-
-                        {/* Toggle aktif */}
                         <Button
                           variant="outline"
                           size="sm"
-                          className={`rounded-xl text-xs gap-1.5 border-slate-200 ${
+                          className={`rounded-xl text-xs gap-1 border-slate-200 ${
                             p.isActive
                               ? 'hover:border-red-300 hover:text-red-600 hover:bg-red-50'
                               : 'hover:border-emerald-300 hover:text-emerald-600 hover:bg-emerald-50'
@@ -318,8 +418,19 @@ export default function ManajemenPengajarPage() {
                           onClick={() => setToggleTarget(p)}
                         >
                           <PowerIcon className="w-3.5 h-3.5" />
-                          {p.isActive ? 'Nonaktifkan' : 'Aktifkan'}
+                          {p.isActive ? 'Off' : 'On'}
                         </Button>
+                        {!p.isActive && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="rounded-xl text-xs gap-1 border-slate-200 hover:border-red-300 hover:text-red-600 hover:bg-red-50"
+                            onClick={() => setDeleteTarget(p)}
+                          >
+                            <Trash2Icon className="w-3.5 h-3.5" />
+                            Hapus
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -330,6 +441,51 @@ export default function ManajemenPengajarPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Dialog Edit Profil */}
+      <Dialog open={!!editTarget} onOpenChange={(o) => !o && setEditTarget(null)}>
+        <DialogContent className="rounded-3xl max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Pengajar</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Nama Lengkap</label>
+              <Input value={editNama} onChange={(e) => setEditNama(e.target.value)} className="rounded-xl" />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">No. WhatsApp</label>
+              <Input
+                placeholder="08123456789"
+                value={editNoWa}
+                onChange={(e) => setEditNoWa(e.target.value)}
+                className="rounded-xl"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <label className="text-sm font-medium text-slate-700">Peran</label>
+              <Select value={editPeran} onValueChange={(v: 'PENGAJAR' | 'ADMIN' | null) => v && setEditPeran(v)}>
+                <SelectTrigger className="w-full rounded-xl">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PENGAJAR">Pengajar</SelectItem>
+                  <SelectItem value="ADMIN">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter showCloseButton>
+            <Button
+              onClick={handleEditProfil}
+              disabled={!editNama.trim() || isPending}
+              className="rounded-2xl bg-blue-500 hover:bg-blue-600 text-white"
+            >
+              {isPending ? <Loader2Icon className="w-4 h-4 animate-spin" /> : 'Simpan'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog Reset PIN */}
       <Dialog open={!!resetTarget} onOpenChange={(o) => !o && setResetTarget(null)}>
@@ -396,6 +552,35 @@ export default function ManajemenPengajarPage() {
               ) : (
                 'Ya, Aktifkan'
               )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Dialog Hapus Pengajar */}
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <DialogContent className="rounded-3xl max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Hapus Pengajar</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-slate-500 py-2">
+            Hapus <span className="font-semibold text-slate-700">{deleteTarget?.nama}</span> permanen?
+            {deleteTarget && (deleteTarget._count.setoran > 0 || deleteTarget._count.catatan > 0) && (
+              <span className="block mt-2 text-amber-600">
+                Pengajar ini memiliki riwayat setoran/catatan sehingga tidak dapat dihapus.
+              </span>
+            )}
+          </p>
+          <DialogFooter showCloseButton>
+            <Button
+              onClick={handleDelete}
+              disabled={
+                isPending ||
+                !!(deleteTarget && (deleteTarget._count.setoran > 0 || deleteTarget._count.catatan > 0))
+              }
+              className="rounded-2xl bg-red-500 hover:bg-red-600 text-white"
+            >
+              {isPending ? <Loader2Icon className="w-4 h-4 animate-spin" /> : 'Ya, Hapus'}
             </Button>
           </DialogFooter>
         </DialogContent>

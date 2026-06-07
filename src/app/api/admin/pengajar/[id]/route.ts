@@ -4,8 +4,6 @@ import { z } from 'zod'
 import { prisma } from '@/lib/prisma'
 import { requireAdmin, getSessionFromHeaders } from '@/lib/auth-server'
 
-// ── PATCH /api/admin/pengajar/[id] ───────────────────────────────────────────
-// Mendukung dua aksi: toggle isActive DAN reset PIN
 const patchSchema = z.discriminatedUnion('aksi', [
   z.object({
     aksi:     z.literal('toggle-aktif'),
@@ -14,6 +12,15 @@ const patchSchema = z.discriminatedUnion('aksi', [
   z.object({
     aksi: z.literal('reset-pin'),
     pin:  z.string().min(4).max(6).regex(/^\d+$/, 'PIN harus angka.'),
+  }),
+  z.object({
+    aksi:  z.literal('update-profil'),
+    nama:  z.string().min(2).max(100).optional(),
+    noWa:  z.preprocess(
+      (v) => (v === '' ? null : v),
+      z.string().max(20).nullable().optional(),
+    ),
+    peran: z.enum(['ADMIN', 'PENGAJAR']).optional(),
   }),
 ])
 
@@ -35,14 +42,6 @@ export async function PATCH(
     return NextResponse.json({ error: 'Pengajar tidak ditemukan.' }, { status: 404 })
   }
 
-  // Admin tidak boleh menonaktifkan diri sendiri
-  if (target.id === session.id) {
-    return NextResponse.json(
-      { error: 'Anda tidak dapat mengubah status akun sendiri.' },
-      { status: 403 },
-    )
-  }
-
   let body: unknown
   try {
     body = await request.json()
@@ -61,14 +60,19 @@ export async function PATCH(
 
   const ip = request.headers.get('x-forwarded-for') ?? 'unknown'
 
-  // ── Toggle aktif/nonaktif ─────────────────────────────────────────────────
   if (parsed.data.aksi === 'toggle-aktif') {
-    const { isActive } = parsed.data
+    if (target.id === session.id) {
+      return NextResponse.json(
+        { error: 'Anda tidak dapat mengubah status akun sendiri.' },
+        { status: 403 },
+      )
+    }
 
+    const { isActive } = parsed.data
     const updated = await prisma.pengajar.update({
       where:  { id },
       data:   { isActive },
-      select: { id: true, nama: true, peran: true, isActive: true, createdAt: true },
+      select: { id: true, nama: true, peran: true, noWa: true, isActive: true, createdAt: true },
     })
 
     await prisma.logAktivitas.create({
@@ -83,14 +87,12 @@ export async function PATCH(
     return NextResponse.json(updated)
   }
 
-  // ── Reset PIN ─────────────────────────────────────────────────────────────
   if (parsed.data.aksi === 'reset-pin') {
     const pinHash = await bcrypt.hash(parsed.data.pin, 10)
-
     const updated = await prisma.pengajar.update({
       where:  { id },
       data:   { pinHash },
-      select: { id: true, nama: true, peran: true, isActive: true, createdAt: true },
+      select: { id: true, nama: true, peran: true, noWa: true, isActive: true, createdAt: true },
     })
 
     await prisma.logAktivitas.create({
@@ -104,4 +106,86 @@ export async function PATCH(
 
     return NextResponse.json(updated)
   }
+
+  if (parsed.data.aksi === 'update-profil') {
+    const { nama, noWa, peran } = parsed.data
+    if (peran !== undefined && target.id === session.id && peran !== target.peran) {
+      return NextResponse.json(
+        { error: 'Anda tidak dapat mengubah peran akun sendiri.' },
+        { status: 403 },
+      )
+    }
+
+    const updated = await prisma.pengajar.update({
+      where: { id },
+      data: {
+        ...(nama  !== undefined ? { nama } : {}),
+        ...(noWa  !== undefined ? { noWa } : {}),
+        ...(peran !== undefined ? { peran } : {}),
+      },
+      select: {
+        id: true, nama: true, peran: true, noWa: true, isActive: true, createdAt: true,
+        _count: { select: { setoran: true, catatan: true } },
+      },
+    })
+
+    return NextResponse.json(updated)
+  }
+}
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  const authResult = requireAdmin(request)
+  if (authResult) return authResult
+  const session = getSessionFromHeaders(request)!
+
+  const { id } = await params
+
+  if (id === session.id) {
+    return NextResponse.json(
+      { error: 'Anda tidak dapat menghapus akun sendiri.' },
+      { status: 403 },
+    )
+  }
+
+  const target = await prisma.pengajar.findUnique({
+    where: { id },
+    select: {
+      id: true, nama: true, isActive: true,
+      _count: { select: { setoran: true, catatan: true } },
+    },
+  })
+  if (!target) {
+    return NextResponse.json({ error: 'Pengajar tidak ditemukan.' }, { status: 404 })
+  }
+
+  if (target.isActive) {
+    return NextResponse.json(
+      { error: 'Pengajar masih aktif. Nonaktifkan terlebih dahulu sebelum menghapus.' },
+      { status: 422 },
+    )
+  }
+
+  if (target._count.setoran > 0 || target._count.catatan > 0) {
+    return NextResponse.json(
+      { error: 'Pengajar masih memiliki riwayat setoran/catatan. Data tidak dapat dihapus.' },
+      { status: 409 },
+    )
+  }
+
+  await prisma.pengajar.delete({ where: { id } })
+
+  const ip = request.headers.get('x-forwarded-for') ?? 'unknown'
+  await prisma.logAktivitas.create({
+    data: {
+      aksi:       'HAPUS_PENGAJAR',
+      detail:     `Admin ${session.nama} menghapus pengajar: ${target.nama}`,
+      ip,
+      pengajarId: session.id,
+    },
+  })
+
+  return NextResponse.json({ success: true, nama: target.nama })
 }

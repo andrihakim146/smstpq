@@ -8,11 +8,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Sesi tidak ditemukan.' }, { status: 401 })
   }
 
-  const q = request.nextUrl.searchParams.get('q')?.trim() ?? ''
+  const sp      = request.nextUrl.searchParams
+  const q       = sp.get('q')?.trim() ?? ''
+  const kelasId = sp.get('kelasId') ?? undefined
 
   const santri = await prisma.santri.findMany({
     where: {
+      status: 'AKTIF',
       isActive: true,
+      ...(kelasId ? { kelasId } : {}),
       ...(q.length > 0
         ? {
             OR: [
@@ -29,7 +33,7 @@ export async function GET(request: NextRequest) {
       kelas: { select: { nama: true } },
     },
     orderBy: { nama: 'asc' },
-    take: 20,
+    take: q.length > 0 ? 20 : 50,
   })
 
   return NextResponse.json(santri)

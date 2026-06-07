@@ -92,3 +92,33 @@ export async function PATCH(request: NextRequest, { params }: { params: Promise<
 
   return NextResponse.json(santri)
 }
+
+// DELETE /api/admin/santri/[id] — hanya santri non-aktif
+export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const check = requireAdmin(request)
+  if (check) return check
+
+  const { id } = await params
+
+  const santri = await prisma.santri.findUnique({
+    where: { id },
+    select: { id: true, nama: true, nis: true, status: true, isActive: true },
+  })
+  if (!santri) return NextResponse.json({ error: 'Santri tidak ditemukan.' }, { status: 404 })
+
+  if (santri.status === 'AKTIF' && santri.isActive) {
+    return NextResponse.json(
+      { error: 'Santri masih aktif. Ubah status ke Lulus, Pindah, atau Keluar terlebih dahulu.' },
+      { status: 422 },
+    )
+  }
+
+  await prisma.$transaction([
+    prisma.absensi.deleteMany({ where: { santriId: id } }),
+    prisma.catatan.deleteMany({ where: { santriId: id } }),
+    prisma.setoran.deleteMany({ where: { santriId: id } }),
+    prisma.santri.delete({ where: { id } }),
+  ])
+
+  return NextResponse.json({ success: true, nama: santri.nama, nis: santri.nis })
+}
